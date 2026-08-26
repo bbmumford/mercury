@@ -1,0 +1,72 @@
+syntax = "proto3";
+package mercury.store.v1;
+option go_package = "github.com/bbmumford/mercury/store/proto";
+
+message StoreRootProto {
+    bytes owner_pub_key = 1;
+    string name = 2;
+    string description = 3;
+    repeated string categories = 4;
+    bytes merkle_root = 5;
+    uint64 version = 6;
+    int64 timestamp_unix_ms = 7;
+    bytes signature = 8;
+}
+
+message ListingProto {
+    string id = 1;
+    string title = 2;
+    string description = 3;
+    uint64 price = 4;
+    string currency = 5;
+    repeated string images = 6;
+    repeated VariantProto variants = 7;
+    repeated ShippingOptionProto shipping_opts = 8;
+    bool digital = 9;
+    string digital_cid = 10;
+    int64 created_at_unix_ms = 11;
+    int64 updated_at_unix_ms = 12;
+}
+
+message VariantProto {
+    string name = 1;
+    string value = 2;
+    int64 price_modifier = 3;
+}
+
+message ShippingOptionProto {
+    string name = 1;
+    uint64 price = 2;
+    int32 est_days = 3;
+}
+
+message StoreAdProto {
+    bytes owner_pub_key = 1;
+    string name = 2;
+    repeated string categories = 3;
+    uint64 version = 4;
+    uint64 listing_count = 5;
+    bytes merkle_root = 6;
+    bytes signature = 7;
+}
+
+message PinAnnouncementProto {
+    bytes replicator_pub_key = 1;
+    string store_id = 2;
+    uint64 store_version = 3;
+    uint64 capacity_mb = 4;
+    bytes signature = 5;
+}
+
+message StoreRequest {
+    string store_id = 1;
+    string listing_id = 2;
+    string media_cid = 3;
+    bytes nonce = 4;
+}
+
+message StoreResponse {
+    bytes payload = 1;
+    bytes merkle_proof = 2;
+    bytes content_hash = 3;
+}

@@ -1,0 +1,67 @@
+// Copyright (c) 2026 HSTLES / ORBTR Pty Ltd. All Rights Reserved.
+// Queries: licensing@hstles.com
+
+syntax = "proto3";
+
+package mercury.order;
+
+option go_package = "github.com/bbmumford/mercury/order/proto;orderpb";
+
+import "google/protobuf/timestamp.proto";
+
+// OrderStatus enumerates order lifecycle phases.
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_PENDING     = 1;
+  ORDER_STATUS_FUNDED      = 2;
+  ORDER_STATUS_ACCEPTED    = 3;
+  ORDER_STATUS_FULFILLED   = 4;
+  ORDER_STATUS_COMPLETED   = 5;
+  ORDER_STATUS_DISPUTED    = 6;
+  ORDER_STATUS_CANCELLED   = 7;
+  ORDER_STATUS_TIMED_OUT   = 8;
+}
+
+// OrderIntent represents a buyer's signed intent to purchase.
+message OrderIntent {
+  string id              = 1;
+  bytes  buyer_pub_key   = 2;  // 32-byte Ed25519 public key
+  bytes  seller_pub_key  = 3;  // 32-byte Ed25519 public key
+  string listing_id      = 4;
+  string variant_id      = 5;
+  int32  quantity         = 6;
+  uint64 total_price      = 7;  // smallest currency unit
+  string currency         = 8;  // e.g. "USDC", "BTC"
+  string chain_id         = 9;  // e.g. "polygon", "bitcoin"
+  bytes  shipping_addr   = 10;  // NaCl box encrypted with seller's pubkey
+  google.protobuf.Timestamp timestamp = 11;
+  bytes  signature       = 12;  // Ed25519 signature by buyer
+}
+
+// FulfillmentCommitment is the seller's signed commitment to ship/deliver.
+message FulfillmentCommitment {
+  string order_id         = 1;
+  bytes  seller_pub_key   = 2;  // 32-byte Ed25519 public key
+  google.protobuf.Timestamp est_delivery = 3;
+  string tracking_info    = 4;  // encrypted tracking details
+  google.protobuf.Timestamp timestamp    = 5;
+  bytes  signature        = 6;  // Ed25519 signature by seller
+}
+
+// OrderEnvelope wraps an order message for transport over Aether streams.
+message OrderEnvelope {
+  oneof payload {
+    OrderIntent            intent      = 1;
+    FulfillmentCommitment  fulfillment = 2;
+    StatusUpdate           status      = 3;
+  }
+}
+
+// StatusUpdate is a signed notification of an order state change.
+message StatusUpdate {
+  string      order_id  = 1;
+  OrderStatus status    = 2;
+  string      reason    = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  bytes       signature = 5;  // signer depends on transition
+}

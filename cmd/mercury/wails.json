@@ -1,0 +1,17 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "mercury",
+  "outputfilename": "mercury",
+  "frontend:install": "echo 'no frontend install step'",
+  "frontend:build": "echo 'frontend assets synced from examples/marketplace by CI'",
+  "frontend:dev:watcher": "echo 'no watcher'",
+  "frontend:dev:serverUrl": "",
+  "wailsjsdir": "./frontend",
+  "version": "2",
+  "info": {
+    "productName": "Mercury",
+    "productVersion": "0.0.1",
+    "copyright": "Copyright (c) 2026 HSTLES / ORBTR Pty Ltd",
+    "comments": "Decentralised marketplace desktop client"
+  }
+}

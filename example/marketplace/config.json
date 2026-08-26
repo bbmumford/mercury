@@ -1,0 +1,16 @@
+{
+  "mercuryWasm": "https://github.com/bbmumford/mercury/releases/latest/download/mercury.wasm",
+  "plutusWasm":  "https://github.com/bbmumford/mercury/releases/latest/download/plutus.wasm",
+  "relays": [
+    "wss://relay1.mercury.example:443",
+    "wss://relay2.mercury.example:443"
+  ],
+  "defaultChain": "polygon",
+  "features": {
+    "passkey": true,
+    "offline": true,
+    "search": true,
+    "reviews": true,
+    "arbitration": true
+  }
+}

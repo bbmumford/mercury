@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mercury</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #ffffff;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 2rem;
+        }
+
+        .status {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-value {
+            font-size: 1.1rem;
+            color: #4caf50;
+        }
+
+        .info {
+            font-size: 0.8rem;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* ----- Mesh panels ------------------------------------------------ */
+
+        .panel {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            text-align: left;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            background: #181818;
+            cursor: pointer;
+            user-select: none;
+            border-bottom: 1px solid #262626;
+        }
+
+        .panel-header.closed {
+            border-bottom: none;
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .panel-caret {
+            color: #888;
+            font-size: 0.85rem;
+            transition: transform 0.15s ease;
+        }
+
+        .panel-header.closed .panel-caret {
+            transform: rotate(-90deg);
+        }
+
+        .panel-body {
+            padding: 1.25rem;
+        }
+
+        .panel-body.hidden {
+            display: none;
+        }
+
+        .field-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.85rem;
+        }
+
+        .field-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .field-label {
+            font-size: 0.9rem;
+            color: #cfcfcf;
+            flex: 1;
+        }
+
+        .field-hint {
+            display: block;
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 0.15rem;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #4caf50;
+            cursor: pointer;
+        }
+
+        input[type="number"],
+        input[type="text"],
+        select {
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            color: #e0e0e0;
+            padding: 0.4rem 0.55rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-family: inherit;
+        }
+
+        input[type="number"] {
+            width: 90px;
+            text-align: right;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            min-width: 0;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #4caf50;
+        }
+
+        .section-divider {
+            border: none;
+            border-top: 1px solid #2a2a2a;
+            margin: 1.2rem 0 1rem;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #666;
+            margin-bottom: 0.75rem;
+        }
+
+        .wallet-row {
+            display: grid;
+            grid-template-columns: 120px 1fr 1fr 140px auto;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .wallet-row input,
+        .wallet-row select {
+            padding: 0.35rem 0.5rem;
+            font-size: 0.85rem;
+            width: 100%;
+        }
+
+        .btn {
+            background: #4caf50;
+            color: #0a0a0a;
+            border: none;
+            padding: 0.55rem 1.1rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .btn:hover {
+            background: #5dbe5f;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: #cfcfcf;
+            border: 1px solid #3a3a3a;
+        }
+
+        .btn-ghost:hover {
+            background: #2a2a2a;
+        }
+
+        .btn-danger-ghost {
+            background: transparent;
+            color: #e57373;
+            border: 1px solid #3a3a3a;
+            padding: 0.3rem 0.55rem;
+            font-size: 0.8rem;
+        }
+
+        .btn-danger-ghost:hover {
+            border-color: #e57373;
+        }
+
+        .btn-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .notice {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .notice.success {
+            color: #4caf50;
+        }
+
+        .notice.error {
+            color: #e57373;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.55rem;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            color: #cfcfcf;
+            margin: 0.15rem 0.15rem 0.15rem 0;
+        }
+
+        .badge.active {
+            background: #1b3a1d;
+            border-color: #2d5f31;
+            color: #9ad49c;
+        }
+
+        .badge.inactive {
+            color: #a9a9a9;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem 1.5rem;
+            font-size: 0.85rem;
+        }
+
+        .status-grid .sg-label {
+            color: #888;
+        }
+
+        .status-grid .sg-value {
+            color: #e0e0e0;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .inactive-list {
+            margin-top: 0.75rem;
+            font-size: 0.82rem;
+            color: #888;
+        }
+
+        .inactive-list li {
+            list-style: none;
+            padding: 0.25rem 0;
+        }
+
+        .inactive-list .role-name {
+            color: #cfcfcf;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Mercury</h1>
+        <p class="subtitle">Decentralised Commerce Protocol</p>
+
+        <div class="status">
+            <div class="status-label">Backend Status</div>
+            <div class="status-value" id="status">Connecting...</div>
+        </div>
+
+        <div class="status">
+            <div class="status-label">Connected Peers</div>
+            <div class="status-value" id="peers">--</div>
+        </div>
+
+        <!-- Mesh Status panel -->
+        <section class="panel" id="mesh-status-panel">
+            <div class="panel-header" data-toggle="mesh-status-body">
+                <span class="panel-title">Mesh Status</span>
+                <span class="panel-caret">v</span>
+            </div>
+            <div class="panel-body" id="mesh-status-body">
+                <div id="mesh-status-content" class="notice">Loading status...</div>
+            </div>
+        </section>
+
+        <!-- Mesh Settings panel -->
+        <section class="panel" id="mesh-settings-panel">
+            <div class="panel-header closed" data-toggle="mesh-settings-body">
+                <span class="panel-title">Mesh Settings</span>
+                <span class="panel-caret">v</span>
+            </div>
+            <div class="panel-body hidden" id="mesh-settings-body">
+                <form id="mesh-settings-form" autocomplete="off">
+                    <div class="field-row">
+                        <label class="field-label" for="ms-enabled">
+                            Enable mesh participation
+                            <span class="field-hint">Master switch. Disabling skips all roles.</span>
+                        </label>
+                        <input type="checkbox" id="ms-enabled">
+                    </div>
+
+                    <hr class="section-divider">
+                    <div class="section-label">Roles</div>
+
+                    <div class="field-row">
+                        <label class="field-label" for="ms-witness">
+                            Enable Witness
+                            <span class="field-hint">Signs balance + transaction attestations.</span>
+                        </label>
+                        <input type="checkbox" id="ms-witness">
+                    </div>
+                    <div class="field-row">
+                        <label class="field-label" for="ms-replicator">
+                            Enable Replicator
+                            <span class="field-hint">Stores and serves data blocks.</span>
+                        </label>
+                        <input type="checkbox" id="ms-replicator">
+                    </div>
+                    <div class="field-row">
+                        <label class="field-label" for="ms-blob-provider">
+                            Enable Blob Provider
+                            <span class="field-hint">Advertises stored blobs to the mesh.</span>
+                        </label>
+                        <input type="checkbox" id="ms-blob-provider">
+                    </div>
+                    <div class="field-row">
+                        <label class="field-label" for="ms-relay">
+                            Enable Message Relay
+                            <span class="field-hint">Relays encrypted direct messages.</span>
+                        </label>
+                        <input type="checkbox" id="ms-relay">
+                    </div>
+
+                    <hr class="section-divider">
+                    <div class="section-label">Storage</div>
+
+                    <div class="field-row">
+                        <label class="field-label" for="ms-storage-max">
+                            Storage max (%)
+                            <span class="field-hint">Hard ceiling, 10-90.</span>
+                        </label>
+                        <input type="number" id="ms-storage-max" min="10" max="90" step="1">
+                    </div>
+                    <div class="field-row">
+                        <label class="field-label" for="ms-storage-headroom">
+                            Target headroom (%)
+                            <span class="field-hint">Free-space target, 10-90.</span>
+                        </label>
+                        <input type="number" id="ms-storage-headroom" min="10" max="90" step="1">
+                    </div>
+                    <div class="field-row">
+                        <label class="field-label" for="ms-storage-reserve">
+                            Min reserve (GB)
+                            <span class="field-hint">Always leave this much free.</span>
+                        </label>
+                        <input type="number" id="ms-storage-reserve" min="0" step="1">
+                    </div>
+
+                    <hr class="section-divider">
+                    <div class="section-label">Fee distribution</div>
+
+                    <div class="field-row">
+                        <label class="field-label" for="ms-fee-window">
+                            Fee distribution window
+                            <span class="field-hint">How often maintainer payouts run.</span>
+                        </label>
+                        <select id="ms-fee-window">
+                            <option value="6">6 hours</option>
+                            <option value="12">12 hours</option>
+                            <option value="24" selected>24 hours</option>
+                            <option value="48">48 hours</option>
+                        </select>
+                    </div>
+
+                    <hr class="section-divider">
+                    <div class="section-label">Per-chain maintainer wallets</div>
+
+                    <div id="wallet-rows"></div>
+                    <button type="button" class="btn btn-ghost" id="add-wallet">+ Add wallet</button>
+
+                    <div class="btn-row">
+                        <button type="submit" class="btn" id="save-settings">Save</button>
+                        <span class="notice" id="save-notice"></span>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <p class="info">
+            This is the Mercury desktop client. The Wails frontend
+            communicates with the Go backend via bound methods. Replace
+            this placeholder with your full application UI.
+        </p>
+    </div>
+
+    <script>
+        // ---- Constants ----------------------------------------------------
+        const CHAIN_IDS = ["bitcoin", "polygon", "ethereum", "arbitrum", "bsc"];
+        const STATUS_REFRESH_MS = 10000;
+
+        // ---- Panel toggles ------------------------------------------------
+        document.querySelectorAll(".panel-header[data-toggle]").forEach((header) => {
+            header.addEventListener("click", () => {
+                const body = document.getElementById(header.dataset.toggle);
+                if (!body) return;
+                body.classList.toggle("hidden");
+                header.classList.toggle("closed");
+            });
+        });
+
+        // ---- Peer count / backend connectivity ----------------------------
+        async function init() {
+            try {
+                const peerCount = await window.go.main.App.GetPeerCount();
+                document.getElementById("peers").textContent = peerCount;
+                document.getElementById("status").textContent = "Connected";
+                // Backend is up -- wire mesh panels.
+                loadMeshSettings();
+                startMeshStatusPolling();
+            } catch (e) {
+                document.getElementById("status").textContent = "Waiting for backend...";
+                setTimeout(init, 2000);
+            }
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", init);
+        } else {
+            init();
+        }
+
+        // ---- Mesh Settings: load / save ----------------------------------
+        async function loadMeshSettings() {
+            try {
+                const s = await window.go.main.App.GetMeshSettings();
+                applySettingsToForm(s || {});
+            } catch (e) {
+                setNotice("error", "Failed to load settings: " + (e && e.message ? e.message : e));
+            }
+        }
+
+        function applySettingsToForm(s) {
+            document.getElementById("ms-enabled").checked = !!s.enabled;
+            // Witness is one checkbox that drives both balance + tx witness.
+            const witnessOn = !!(s.enableBalanceWitness || s.enableTxWitness);
+            document.getElementById("ms-witness").checked = witnessOn;
+            document.getElementById("ms-replicator").checked = !!s.enableReplication;
+            document.getElementById("ms-blob-provider").checked = !!s.enableBlobProvider;
+            document.getElementById("ms-relay").checked = !!s.enableMessageRelay;
+            document.getElementById("ms-storage-max").value = s.storageMaxPct || 50;
+            document.getElementById("ms-storage-headroom").value = s.storageHeadroomPct || 25;
+            document.getElementById("ms-storage-reserve").value = s.storageMinReserveGB || 10;
+            const feeHours = s.feeDistributionHours || 24;
+            const feeSelect = document.getElementById("ms-fee-window");
+            feeSelect.value = [6, 12, 24, 48].includes(feeHours) ? String(feeHours) : "24";
+
+            renderWalletRows(Array.isArray(s.maintainerWallets) ? s.maintainerWallets : []);
+        }
+
+        function renderWalletRows(wallets) {
+            const host = document.getElementById("wallet-rows");
+            host.innerHTML = "";
+            wallets.forEach((w) => appendWalletRow(w));
+        }
+
+        function appendWalletRow(wallet) {
+            const host = document.getElementById("wallet-rows");
+            const row = document.createElement("div");
+            row.className = "wallet-row";
+            const chainOptions = CHAIN_IDS.map((c) =>
+                `<option value="${c}"${c === wallet.chainId ? " selected" : ""}>${c}</option>`
+            ).join("");
+            row.innerHTML =
+                `<select class="w-chain"><option value="">-- chain --</option>${chainOptions}</select>` +
+                `<input type="text" class="w-address" placeholder="Address" value="${escapeAttr(wallet.address || "")}">` +
+                `<input type="text" class="w-keypath" placeholder="Key path" value="${escapeAttr(wallet.keyPath || "")}">` +
+                `<input type="text" class="w-passenv" placeholder="Passphrase env var" value="${escapeAttr(wallet.passphraseEnv || "")}">` +
+                `<button type="button" class="btn btn-danger-ghost w-remove" aria-label="Remove">x</button>`;
+            row.querySelector(".w-remove").addEventListener("click", () => row.remove());
+            host.appendChild(row);
+        }
+
+        function escapeAttr(v) {
+            return String(v).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+        }
+
+        document.getElementById("add-wallet").addEventListener("click", () => {
+            appendWalletRow({ chainId: "", address: "", keyPath: "", passphraseEnv: "" });
+        });
+
+        document.getElementById("mesh-settings-form").addEventListener("submit", async (ev) => {
+            ev.preventDefault();
+            const saveBtn = document.getElementById("save-settings");
+
+            const storageMax = intInRange("ms-storage-max", 10, 90);
+            const storageHead = intInRange("ms-storage-headroom", 10, 90);
+            const storageReserve = intInRange("ms-storage-reserve", 0, 100000);
+            if (storageMax == null || storageHead == null || storageReserve == null) {
+                setNotice("error", "Storage values out of range (max/headroom 10-90, reserve >= 0).");
+                return;
+            }
+
+            const witnessOn = document.getElementById("ms-witness").checked;
+            const walletRows = document.querySelectorAll("#wallet-rows .wallet-row");
+            const wallets = [];
+            for (const r of walletRows) {
+                const chain = r.querySelector(".w-chain").value.trim();
+                const address = r.querySelector(".w-address").value.trim();
+                const keyPath = r.querySelector(".w-keypath").value.trim();
+                const passEnv = r.querySelector(".w-passenv").value.trim();
+                if (!chain && !address && !keyPath && !passEnv) {
+                    continue; // skip fully-empty row
+                }
+                if (!chain) {
+                    setNotice("error", "Every wallet row must select a chain.");
+                    return;
+                }
+                if (!address) {
+                    setNotice("error", "Every wallet row must have an address.");
+                    return;
+                }
+                wallets.push({
+                    chainId: chain,
+                    address: address,
+                    keyPath: keyPath,
+                    passphraseEnv: passEnv,
+                });
+            }
+
+            const settings = {
+                enabled: document.getElementById("ms-enabled").checked,
+                enableReplication: document.getElementById("ms-replicator").checked,
+                enableBlobProvider: document.getElementById("ms-blob-provider").checked,
+                enableMessageRelay: document.getElementById("ms-relay").checked,
+                enableBalanceWitness: witnessOn,
+                enableTxWitness: witnessOn,
+                storageMaxPct: storageMax,
+                storageHeadroomPct: storageHead,
+                storageMinReserveGB: storageReserve,
+                feeDistributionHours: parseInt(document.getElementById("ms-fee-window").value, 10) || 24,
+                maintainerWallets: wallets,
+            };
+
+            saveBtn.disabled = true;
+            setNotice("", "Saving...");
+            try {
+                await window.go.main.App.SetMeshSettings(settings);
+                setNotice("success", "Saved. Restart Mercury to apply changes.");
+                setTimeout(() => {
+                    const el = document.getElementById("save-notice");
+                    if (el.textContent.startsWith("Saved.")) {
+                        setNotice("", "");
+                    }
+                }, 6000);
+            } catch (e) {
+                setNotice("error", "Save failed: " + (e && e.message ? e.message : e));
+            } finally {
+                saveBtn.disabled = false;
+            }
+        });
+
+        function intInRange(id, min, max) {
+            const v = parseInt(document.getElementById(id).value, 10);
+            if (isNaN(v) || v < min || v > max) return null;
+            return v;
+        }
+
+        function setNotice(kind, msg) {
+            const el = document.getElementById("save-notice");
+            el.className = "notice" + (kind ? " " + kind : "");
+            el.textContent = msg;
+        }
+
+        // ---- Mesh Status: polling ----------------------------------------
+        let statusTimer = null;
+
+        function startMeshStatusPolling() {
+            refreshMeshStatus();
+            if (statusTimer) clearInterval(statusTimer);
+            statusTimer = setInterval(refreshMeshStatus, STATUS_REFRESH_MS);
+        }
+
+        window.addEventListener("beforeunload", () => {
+            if (statusTimer) {
+                clearInterval(statusTimer);
+                statusTimer = null;
+            }
+        });
+
+        async function refreshMeshStatus() {
+            const host = document.getElementById("mesh-status-content");
+            try {
+                const s = await window.go.main.App.GetMeshStatus();
+                host.innerHTML = renderMeshStatus(s || {});
+            } catch (e) {
+                host.className = "notice error";
+                host.textContent = "Status unavailable: " + (e && e.message ? e.message : e);
+            }
+        }
+
+        function renderMeshStatus(s) {
+            const running = !!s.running;
+            const roles = Array.isArray(s.enabled_roles) ? s.enabled_roles : [];
+            const inactive = Array.isArray(s.inactive_roles) ? s.inactive_roles : [];
+            const neutrino = s.neutrino || {};
+            const atts = s.attestations || {};
+            const quota = formatBytes(s.storage_quota_bytes || 0);
+            const used = formatBytes(s.storage_used_bytes || 0);
+            const pressure = (s.storage_pressure_pct == null ? 0 : s.storage_pressure_pct);
+            const relay = s.relay_buffer_size == null ? 0 : s.relay_buffer_size;
+
+            const neutrinoText = neutrino.synced
+                ? "Synced (block " + (neutrino.block_height || 0) + ")"
+                : "Syncing at block " + (neutrino.block_height || 0);
+
+            const rolesHtml = roles.length
+                ? roles.map((r) => `<span class="badge active">${escapeAttr(r)}</span>`).join("")
+                : `<span class="badge inactive">no active roles</span>`;
+
+            const inactiveHtml = inactive.length
+                ? `<ul class="inactive-list">${inactive.map((ir) =>
+                        `<li><span class="role-name">${escapeAttr(ir.name || "")}</span>: ${escapeAttr(ir.reason || "")}</li>`
+                    ).join("")}</ul>`
+                : "";
+
+            return (
+                `<div style="margin-bottom:0.75rem;">` +
+                `<span class="status-label" style="display:inline-block;margin-right:0.5rem;margin-bottom:0;">State</span>` +
+                `<span class="badge ${running ? "active" : "inactive"}">${running ? "running" : "stopped"}</span>` +
+                `</div>` +
+                `<div class="section-label" style="margin-top:0.5rem;">Active roles</div>` +
+                `<div style="margin-bottom:0.75rem;">${rolesHtml}</div>` +
+                `<div class="status-grid">` +
+                `  <div class="sg-label">Neutrino</div><div class="sg-value">${escapeAttr(neutrinoText)}</div>` +
+                `  <div class="sg-label">Attestations (24h)</div><div class="sg-value">${atts.last_24h || 0}</div>` +
+                `  <div class="sg-label">Attestations (7d)</div><div class="sg-value">${atts.last_7d || 0}</div>` +
+                `  <div class="sg-label">Storage used</div><div class="sg-value">${used} / ${quota}</div>` +
+                `  <div class="sg-label">Storage pressure</div><div class="sg-value">${pressure}%</div>` +
+                `  <div class="sg-label">Relay buffer</div><div class="sg-value">${relay}</div>` +
+                `</div>` +
+                inactiveHtml
+            );
+        }
+
+        function formatBytes(n) {
+            if (!n) return "0 B";
+            const units = ["B", "KB", "MB", "GB", "TB"];
+            let i = 0;
+            let v = n;
+            while (v >= 1024 && i < units.length - 1) {
+                v /= 1024;
+                i++;
+            }
+            return v.toFixed(i === 0 ? 0 : 1) + " " + units[i];
+        }
+    </script>
+</body>
+</html>

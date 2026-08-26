@@ -1,0 +1,301 @@
+# Mercury - Marketplace Engine Release
+# Triggered on version tags (v*). Runs quality checks, builds WASM binary,
+# builds headless node + Wails desktop GUI for all platforms, deploys the
+# marketplace example to GitHub Pages, and creates a GitHub Release with
+# all artifacts attached.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  attestations: write
+
+env:
+  GO_VERSION: '1.25.0'
+  WAILS_VERSION: 'v2.10.1'
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11.2
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test -race
+        run: go test -race -count=1 -timeout=5m ./...
+
+      - name: Test coverage
+        run: |
+          go test -coverprofile=coverage.out -timeout=5m ./...
+          go tool cover -func=coverage.out | tail -1
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  wasm:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build mercury.wasm
+        run: GOOS=js GOARCH=wasm go build -o mercury.wasm ./wasm/
+
+      - name: Build plutus.wasm (from go.mod dependency)
+        run: GOOS=js GOARCH=wasm go build -o plutus.wasm github.com/bbmumford/plutus/wasm
+
+      - name: Copy JS assets
+        run: |
+          cp wasm/mercury.js .
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" .
+
+      - name: Attest WASM build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            mercury.wasm
+            plutus.wasm
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wasm-artifacts
+          path: |
+            mercury.wasm
+            plutus.wasm
+            mercury.js
+            wasm_exec.js
+
+  node:
+    needs: quality
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            ext: ''
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            ext: ''
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            ext: ''
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            ext: ''
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            ext: '.exe'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Build mercury-node
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: go build -o mercury-node-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/mercury-node/
+
+      - name: Attest mercury-node build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: mercury-node-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mercury-node-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: mercury-node-*
+
+  desktop:
+    needs: wasm
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux/amd64
+            artifact: mercury-desktop-linux-amd64
+            output_glob: 'build/bin/mercury*'
+          - os: macos-latest
+            platform: darwin/universal
+            artifact: mercury-desktop-macos-universal
+            output_glob: 'build/bin/mercury-macos-universal.zip'
+          - os: windows-latest
+            platform: windows/amd64
+            artifact: mercury-desktop-windows-amd64
+            output_glob: 'build/bin/mercury*.exe'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wasm-artifacts
+          path: wasm-out
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
+
+      - name: Linux Wails + passkey dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libfido2-dev pkg-config
+
+      - name: macOS runner version check (passkey PRF needs 14+)
+        if: matrix.os == 'macos-latest'
+        run: sw_vers
+
+      - name: Sync marketplace UI into Wails frontend
+        shell: bash
+        run: bash tools/sync-frontend.sh
+
+      - name: Bundle WASM into desktop frontend
+        shell: bash
+        run: |
+          cp wasm-out/mercury.wasm cmd/mercury/frontend/mercury.wasm
+          cp wasm-out/plutus.wasm cmd/mercury/frontend/plutus.wasm
+          cp wasm-out/wasm_exec.js cmd/mercury/frontend/wasm_exec.js
+          # The marketplace UI ships its own js/mercury.js loader; the Go-side
+          # SDK wrapper (wasm/mercury.js) is a separate release artifact for
+          # third-party SDK consumers and is NOT bundled into the example.
+
+      - name: Build Wails desktop
+        working-directory: ./cmd/mercury
+        env:
+          CGO_ENABLED: '1'
+        run: wails build -platform ${{ matrix.platform }} -clean -tags wails
+
+      - name: Package macOS .app to .zip
+        if: matrix.os == 'macos-latest'
+        working-directory: ./cmd/mercury/build/bin
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent mercury.app mercury-macos-universal.zip
+
+      - name: Attest desktop build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ./cmd/mercury/${{ matrix.output_glob }}
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ./cmd/mercury/${{ matrix.output_glob }}
+
+  pages:
+    needs: wasm
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wasm-artifacts
+          path: wasm-out
+
+      - name: Stage marketplace example with WASM
+        run: |
+          mkdir -p site
+          cp -r example/marketplace/. site/
+          cp wasm-out/mercury.wasm site/
+          cp wasm-out/plutus.wasm site/
+          cp wasm-out/wasm_exec.js site/
+          touch site/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  release:
+    needs: [wasm, node, desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate SHA256 checksums
+        working-directory: artifacts
+        run: |
+          # Sort for deterministic output; flatten any nested desktop dirs.
+          find . -type f ! -name 'SHA256SUMS' -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > SHA256SUMS
+          echo "## Artifact checksums (SHA-256)" > NOTES.md
+          echo "" >> NOTES.md
+          echo '```' >> NOTES.md
+          cat SHA256SUMS >> NOTES.md
+          echo '```' >> NOTES.md
+          echo "" >> NOTES.md
+          echo "Verify with: \`sha256sum -c SHA256SUMS\`" >> NOTES.md
+          echo "" >> NOTES.md
+          echo "## Build provenance" >> NOTES.md
+          echo "" >> NOTES.md
+          echo "Every binary above is signed with a Sigstore build attestation tied to this commit." >> NOTES.md
+          echo "Verify with: \`gh attestation verify <file> -R \${{ github.repository }}\`" >> NOTES.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body_path: artifacts/NOTES.md
+          append_body: true
+          files: |
+            artifacts/SHA256SUMS
+            artifacts/mercury.wasm
+            artifacts/plutus.wasm
+            artifacts/mercury.js
+            artifacts/wasm_exec.js
+            artifacts/mercury-node-linux-amd64
+            artifacts/mercury-node-linux-arm64
+            artifacts/mercury-node-darwin-amd64
+            artifacts/mercury-node-darwin-arm64
+            artifacts/mercury-node-windows-amd64.exe
+            artifacts/mercury-desktop-linux-amd64/*
+            artifacts/mercury-desktop-macos-universal/*
+            artifacts/mercury-desktop-windows-amd64/*

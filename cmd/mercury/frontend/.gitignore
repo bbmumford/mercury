@@ -1,0 +1,11 @@
+# Frontend assets are generated at build time from ../../../example/marketplace
+# (via tools/sync-frontend.sh or CI). Only the placeholder index.html and this
+# .gitignore are tracked.
+*.html
+!index.html
+css/
+js/
+config.json
+mercury.wasm
+wasm_exec.js
+mercury.js
