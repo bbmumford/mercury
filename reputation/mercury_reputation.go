@@ -90,7 +90,7 @@ type reviewStateStore struct {
 	service *ReviewService
 }
 
-func (s *reviewStateStore) Fingerprint(topic string) uint64 {
+func (s *reviewStateStore) Fingerprint() uint64 {
 	s.service.mu.RLock()
 	defer s.service.mu.RUnlock()
 
@@ -104,33 +104,34 @@ func (s *reviewStateStore) Fingerprint(topic string) uint64 {
 	return fp
 }
 
-func (s *reviewStateStore) DeltaSince(topic string, since uint64) ([][]byte, uint64, error) {
+// Snapshot returns every stored review; a review that fails to marshal is
+// left out so it does not block the rest.
+func (s *reviewStateStore) Snapshot() [][]byte {
+	return s.Delta(time.Time{})
+}
+
+// Delta returns the reviews stamped after since; the zero time admits
+// every review, which is the snapshot.
+func (s *reviewStateStore) Delta(since time.Time) [][]byte {
 	s.service.mu.RLock()
 	defer s.service.mu.RUnlock()
 
-	sinceTime := time.Unix(0, int64(since))
 	var records [][]byte
-	var maxWatermark uint64
-
 	for _, reviews := range s.service.reviews {
 		for _, r := range reviews {
-			if r.Timestamp.After(sinceTime) {
+			if since.IsZero() || r.Timestamp.After(since) {
 				data, err := json.Marshal(r)
 				if err != nil {
 					continue
 				}
 				records = append(records, data)
-				wm := uint64(r.Timestamp.UnixNano())
-				if wm > maxWatermark {
-					maxWatermark = wm
-				}
 			}
 		}
 	}
-	return records, maxWatermark, nil
+	return records
 }
 
-func (s *reviewStateStore) Apply(topic string, data []byte) error {
+func (s *reviewStateStore) Apply(data []byte) error {
 	var r Review
 	if err := json.Unmarshal(data, &r); err != nil {
 		return fmt.Errorf("reputation: unmarshal review: %w", err)

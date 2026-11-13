@@ -4,8 +4,8 @@ go 1.25.0
 
 require (
 	github.com/ORBTR/aether v0.0.15
+	github.com/bbmumford/ledger v0.0.20
 	github.com/bbmumford/minerva v0.0.1
-	github.com/bbmumford/ledger v0.0.1
 	github.com/bbmumford/plutus v0.0.1
 	github.com/bbmumford/whisper v0.0.15
 	github.com/wailsapp/wails/v2 v2.12.0
@@ -13,6 +13,8 @@ require (
 	golang.org/x/crypto v0.50.0
 	google.golang.org/protobuf v1.36.11
 )
+
+require filippo.io/edwards25519 v1.2.0 // indirect
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect

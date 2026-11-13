@@ -80,7 +80,7 @@ type profileStateStore struct {
 	service *ProfileService
 }
 
-func (s *profileStateStore) Fingerprint(topic string) uint64 {
+func (s *profileStateStore) Fingerprint() uint64 {
 	s.service.mu.RLock()
 	defer s.service.mu.RUnlock()
 	// Simple fingerprint: hash of profile count + latest update
@@ -91,31 +91,32 @@ func (s *profileStateStore) Fingerprint(topic string) uint64 {
 	return fp
 }
 
-func (s *profileStateStore) DeltaSince(topic string, since uint64) ([][]byte, uint64, error) {
+// Snapshot returns every cached profile; a profile that fails to marshal
+// is left out so it does not block the rest.
+func (s *profileStateStore) Snapshot() [][]byte {
+	return s.Delta(time.Time{})
+}
+
+// Delta returns the profiles updated after since; the zero time admits
+// every profile, which is the snapshot.
+func (s *profileStateStore) Delta(since time.Time) [][]byte {
 	s.service.mu.RLock()
 	defer s.service.mu.RUnlock()
 
-	sinceTime := time.Unix(0, int64(since))
 	var records [][]byte
-	var maxWatermark uint64
-
 	for _, p := range s.service.cache {
-		if p.UpdatedAt.After(sinceTime) {
+		if since.IsZero() || p.UpdatedAt.After(since) {
 			data, err := json.Marshal(p)
 			if err != nil {
 				continue
 			}
 			records = append(records, data)
-			wm := uint64(p.UpdatedAt.UnixNano())
-			if wm > maxWatermark {
-				maxWatermark = wm
-			}
 		}
 	}
-	return records, maxWatermark, nil
+	return records
 }
 
-func (s *profileStateStore) Apply(topic string, data []byte) error {
+func (s *profileStateStore) Apply(data []byte) error {
 	var p UserProfile
 	if err := json.Unmarshal(data, &p); err != nil {
 		return fmt.Errorf("profile: unmarshal: %w", err)

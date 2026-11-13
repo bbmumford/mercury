@@ -230,6 +230,13 @@ func TestScheduleExpireChallenge_Idempotent_CancelsPrior(t *testing.T) {
 	r.scheduleExpireChallenge("idem", cidHash)
 	r.scheduleExpireChallenge("idem", cidHash)
 
+	// Wait for the surviving timer to fire, polling so a loaded host that
+	// runs the 50ms timer late does not read zero, then wait past both
+	// timers' deadlines again so an uncancelled first timer would be seen.
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) && fake.expCount.Load() < 1 {
+		time.Sleep(5 * time.Millisecond)
+	}
 	time.Sleep(200 * time.Millisecond)
 	if got := fake.expCount.Load(); got != 1 {
 		t.Errorf("expected exactly 1 expire call, got %d", got)
