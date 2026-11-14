@@ -14,7 +14,10 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-require filippo.io/edwards25519 v1.2.0 // indirect
+require (
+	filippo.io/edwards25519 v1.2.0 // indirect
+	golang.org/x/sync v0.20.0 // indirect
+)
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
@@ -103,14 +106,14 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/bbmumford/whisper v0.0.1 => ../whisper
+replace github.com/bbmumford/whisper => ../whisper
 
-replace github.com/bbmumford/plutus v0.0.1 => ../plutus
+replace github.com/bbmumford/plutus => ../plutus
 
-replace github.com/bbmumford/ledger v0.0.1 => ../ledger
+replace github.com/bbmumford/ledger => ../ledger
 
-replace github.com/bbmumford/minerva v0.0.1 => ../minerva
+replace github.com/bbmumford/minerva => ../minerva
 
-replace github.com/ORBTR/aether v0.0.1 => ../aether
+replace github.com/ORBTR/aether => ../aether
 
-replace github.com/bbmumford/diststore v0.0.1 => ../diststore
+replace github.com/bbmumford/diststore => ../diststore

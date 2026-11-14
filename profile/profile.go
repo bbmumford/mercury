@@ -5,6 +5,7 @@
 package profile
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
@@ -31,13 +32,13 @@ const (
 // Profiles are gossiped via Whisper StatefulMerge and stored locally.
 type UserProfile struct {
 	PubKey    ed25519.PublicKey `json:"pubKey"`
-	Name      string           `json:"name"`
-	Bio       string           `json:"bio"`
-	AvatarCID string           `json:"avatarCid"` // content-addressed avatar image
-	Location  string           `json:"location"`  // general area, not exact (ISO 3166-1 alpha-2)
-	JoinedAt  time.Time        `json:"joinedAt"`
-	UpdatedAt time.Time        `json:"updatedAt"`
-	Signature []byte           `json:"signature"`
+	Name      string            `json:"name"`
+	Bio       string            `json:"bio"`
+	AvatarCID string            `json:"avatarCid"` // content-addressed avatar image
+	Location  string            `json:"location"`  // general area, not exact (ISO 3166-1 alpha-2)
+	JoinedAt  time.Time         `json:"joinedAt"`
+	UpdatedAt time.Time         `json:"updatedAt"`
+	Signature []byte            `json:"signature"`
 }
 
 // profileDigest computes the SHA-256 hash of all UserProfile fields except Signature.
@@ -75,64 +76,56 @@ func (p *UserProfile) Verify() bool {
 	return ed25519.Verify(p.PubKey, digest, p.Signature)
 }
 
-// profileStateStore implements whisper.StateStore for profile gossip.
+// profileStateStore answers whisper.StateStore for the mercury.profiles
+// topic. Fingerprint, Snapshot and Delta read the service's record set,
+// which holds the encoding of exactly the profiles in the cache, so the
+// summary whisper's G2 digest compares covers every held profile's
+// content, and Delta filters on the time a profile was stored here rather
+// than its author's UpdatedAt, which whisper's per-peer watermark (the
+// local time it last selected records for that peer) cannot be compared
+// with. Apply admits through mergeProfile, the rule Set and the gossip
+// subscriber use.
 type profileStateStore struct {
 	service *ProfileService
 }
 
-func (s *profileStateStore) Fingerprint() uint64 {
-	s.service.mu.RLock()
-	defer s.service.mu.RUnlock()
-	// Simple fingerprint: hash of profile count + latest update
-	var fp uint64
-	for _, p := range s.service.cache {
-		fp ^= uint64(p.UpdatedAt.UnixNano())
-	}
-	return fp
+// Fingerprint summarises every held profile's content; 0 when none is held.
+func (s *profileStateStore) Fingerprint() uint64 { return s.service.records.Fingerprint() }
+
+// Snapshot returns every held profile.
+func (s *profileStateStore) Snapshot() [][]byte { return s.service.records.Snapshot() }
+
+// Delta returns the profiles stored here at or after since.
+func (s *profileStateStore) Delta(since time.Time) [][]byte { return s.service.records.Delta(since) }
+
+// BucketDigest lets a fingerprint mismatch narrow to the differing buckets.
+func (s *profileStateStore) BucketDigest(buckets uint16) []uint64 {
+	return s.service.records.BucketDigest(buckets)
 }
 
-// Snapshot returns every cached profile; a profile that fails to marshal
-// is left out so it does not block the rest.
-func (s *profileStateStore) Snapshot() [][]byte {
-	return s.Delta(time.Time{})
+// RecordsInBuckets serves the profiles of the buckets a peer differs on.
+func (s *profileStateStore) RecordsInBuckets(buckets uint16, want []bool) [][]byte {
+	return s.service.records.RecordsInBuckets(buckets, want)
 }
 
-// Delta returns the profiles updated after since; the zero time admits
-// every profile, which is the snapshot.
-func (s *profileStateStore) Delta(since time.Time) [][]byte {
-	s.service.mu.RLock()
-	defer s.service.mu.RUnlock()
-
-	var records [][]byte
-	for _, p := range s.service.cache {
-		if since.IsZero() || p.UpdatedAt.After(since) {
-			data, err := json.Marshal(p)
-			if err != nil {
-				continue
-			}
-			records = append(records, data)
-		}
-	}
-	return records
-}
-
+// Apply admits a profile a peer sent through state sync, refusing what
+// mergeProfile refuses.
 func (s *profileStateStore) Apply(data []byte) error {
 	var p UserProfile
 	if err := json.Unmarshal(data, &p); err != nil {
 		return fmt.Errorf("profile: unmarshal: %w", err)
 	}
-	if !p.Verify() {
-		return fmt.Errorf("profile: invalid signature")
-	}
-	s.service.mergeProfile(&p)
-	return nil
+	return s.service.mergeProfile(&p)
 }
 
 // ProfileService manages user profiles with gossip-based replication.
+// records holds the encoding of each profile in cache under the same key,
+// written only by mergeProfile under mu, so the two never disagree.
 type ProfileService struct {
 	whisper   *whisper.Engine
-	cache     map[string]*UserProfile   // hex(pubkey) -> profile
-	following map[string]bool           // hex(pubkey) -> true if following
+	cache     map[string]*UserProfile // hex(pubkey) -> profile
+	records   *whisper.RecordSet      // hex(pubkey) -> encoded profile
+	following map[string]bool         // hex(pubkey) -> true if following
 	mu        sync.RWMutex
 }
 
@@ -142,6 +135,7 @@ func NewProfileService(engine *whisper.Engine) *ProfileService {
 	ps := &ProfileService{
 		whisper:   engine,
 		cache:     make(map[string]*UserProfile),
+		records:   whisper.NewRecordSet(),
 		following: make(map[string]bool),
 	}
 
@@ -162,12 +156,10 @@ func NewProfileService(engine *whisper.Engine) *ProfileService {
 
 // Set publishes a user profile. The profile must be signed and valid.
 func (ps *ProfileService) Set(profile UserProfile) error {
-	if err := validateProfile(&profile); err != nil {
+	// Apply locally, under the rule a peer's copy is admitted by.
+	if err := ps.mergeProfile(&profile); err != nil {
 		return err
 	}
-
-	// Apply locally
-	ps.mergeProfile(&profile)
 
 	// Publish to gossip — mergeProfile already applied local state above,
 	// so we skip cfg.Store.Apply (that path is for the gossip receive side).
@@ -263,18 +255,43 @@ func (ps *ProfileService) CachedProfiles() int {
 	return len(ps.cache)
 }
 
-// mergeProfile applies a profile update using LWW semantics (latest UpdatedAt wins).
-func (ps *ProfileService) mergeProfile(p *UserProfile) {
+// mergeProfile admits one profile, from Set, from gossip
+// (profileSubscriber.OnBroadcast) or from state sync
+// (profileStateStore.Apply), under one rule, so a peer cannot place on one
+// path a profile another refuses: validateProfile's checks, then the later
+// UpdatedAt of the same author wins. Two versions with the same UpdatedAt
+// are settled by the greater signature, so every node keeps the same one
+// and the content fingerprints whisper compares can agree. A profile no
+// newer than the one held is not an error.
+func (ps *ProfileService) mergeProfile(p *UserProfile) error {
+	if err := validateProfile(p); err != nil {
+		return err
+	}
 	key := hex.EncodeToString(p.PubKey)
 
 	ps.mu.Lock()
 	defer ps.mu.Unlock()
 
-	existing, ok := ps.cache[key]
-	if !ok || p.UpdatedAt.After(existing.UpdatedAt) {
-		cp := *p
-		ps.cache[key] = &cp
+	if existing, ok := ps.cache[key]; ok && !profileSupersedes(p, existing) {
+		return nil
 	}
+	cp := *p
+	data, err := json.Marshal(&cp)
+	if err != nil {
+		return fmt.Errorf("profile: marshal: %w", err)
+	}
+	ps.cache[key] = &cp
+	ps.records.Put(key, data)
+	return nil
+}
+
+// profileSupersedes reports whether incoming replaces held: a later
+// UpdatedAt, or the same UpdatedAt and a greater signature.
+func profileSupersedes(incoming, held *UserProfile) bool {
+	if !incoming.UpdatedAt.Equal(held.UpdatedAt) {
+		return incoming.UpdatedAt.After(held.UpdatedAt)
+	}
+	return bytes.Compare(incoming.Signature, held.Signature) > 0
 }
 
 // validateProfile performs comprehensive validation on a profile.
@@ -308,14 +325,12 @@ type profileSubscriber struct {
 	service *ProfileService
 }
 
-// OnBroadcast implements whisper.Subscriber.
+// OnBroadcast implements whisper.Subscriber. A refused profile is dropped:
+// gossip is best-effort.
 func (s *profileSubscriber) OnBroadcast(topic string, from string, payload []byte) {
 	var p UserProfile
 	if err := json.Unmarshal(payload, &p); err != nil {
 		return
 	}
-	if !p.Verify() {
-		return
-	}
-	s.service.mergeProfile(&p)
+	_ = s.service.mergeProfile(&p)
 }

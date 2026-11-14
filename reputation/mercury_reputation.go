@@ -5,6 +5,7 @@
 package reputation
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
@@ -42,12 +43,12 @@ const (
 type Review struct {
 	ReviewerPubKey ed25519.PublicKey `json:"reviewerPubKey"`
 	SellerPubKey   ed25519.PublicKey `json:"sellerPubKey"`
-	OrderID        string           `json:"orderId"`
-	Rating         int              `json:"rating"` // 1-5 stars
-	Title          string           `json:"title"`
-	Body           string           `json:"body"`
-	Timestamp      time.Time        `json:"timestamp"`
-	Signature      []byte           `json:"signature"`
+	OrderID        string            `json:"orderId"`
+	Rating         int               `json:"rating"` // 1-5 stars
+	Title          string            `json:"title"`
+	Body           string            `json:"body"`
+	Timestamp      time.Time         `json:"timestamp"`
+	Signature      []byte            `json:"signature"`
 }
 
 // reviewDigest computes the SHA-256 hash of all Review fields except Signature.
@@ -85,69 +86,55 @@ func (r *Review) Verify() bool {
 	return ed25519.Verify(r.ReviewerPubKey, digest, r.Signature)
 }
 
-// reviewStateStore implements whisper.StateStore for review gossip.
+// reviewStateStore answers whisper.StateStore for the mercury.reviews
+// topic. Fingerprint, Snapshot and Delta read the service's record set,
+// which holds the encoding of exactly the reviews in the service, so the
+// summary whisper's G2 digest compares covers every held review's content,
+// and Delta filters on the time a review was stored here rather than its
+// author's Timestamp, which whisper's per-peer watermark (the local time it
+// last selected records for that peer) cannot be compared with. Apply
+// admits through mergeReview, the rule Submit and the gossip subscriber use.
 type reviewStateStore struct {
 	service *ReviewService
 }
 
-func (s *reviewStateStore) Fingerprint() uint64 {
-	s.service.mu.RLock()
-	defer s.service.mu.RUnlock()
+// Fingerprint summarises every held review's content; 0 when none is held.
+func (s *reviewStateStore) Fingerprint() uint64 { return s.service.records.Fingerprint() }
 
-	var fp uint64
-	for _, reviews := range s.service.reviews {
-		fp ^= uint64(len(reviews))
-		for _, r := range reviews {
-			fp ^= uint64(r.Timestamp.UnixNano())
-		}
-	}
-	return fp
+// Snapshot returns every held review.
+func (s *reviewStateStore) Snapshot() [][]byte { return s.service.records.Snapshot() }
+
+// Delta returns the reviews stored here at or after since.
+func (s *reviewStateStore) Delta(since time.Time) [][]byte { return s.service.records.Delta(since) }
+
+// BucketDigest lets a fingerprint mismatch narrow to the differing buckets.
+func (s *reviewStateStore) BucketDigest(buckets uint16) []uint64 {
+	return s.service.records.BucketDigest(buckets)
 }
 
-// Snapshot returns every stored review; a review that fails to marshal is
-// left out so it does not block the rest.
-func (s *reviewStateStore) Snapshot() [][]byte {
-	return s.Delta(time.Time{})
+// RecordsInBuckets serves the reviews of the buckets a peer differs on.
+func (s *reviewStateStore) RecordsInBuckets(buckets uint16, want []bool) [][]byte {
+	return s.service.records.RecordsInBuckets(buckets, want)
 }
 
-// Delta returns the reviews stamped after since; the zero time admits
-// every review, which is the snapshot.
-func (s *reviewStateStore) Delta(since time.Time) [][]byte {
-	s.service.mu.RLock()
-	defer s.service.mu.RUnlock()
-
-	var records [][]byte
-	for _, reviews := range s.service.reviews {
-		for _, r := range reviews {
-			if since.IsZero() || r.Timestamp.After(since) {
-				data, err := json.Marshal(r)
-				if err != nil {
-					continue
-				}
-				records = append(records, data)
-			}
-		}
-	}
-	return records
-}
-
+// Apply admits a review a peer sent through state sync, refusing what
+// mergeReview refuses.
 func (s *reviewStateStore) Apply(data []byte) error {
 	var r Review
 	if err := json.Unmarshal(data, &r); err != nil {
 		return fmt.Errorf("reputation: unmarshal review: %w", err)
 	}
-	if !r.Verify() {
-		return fmt.Errorf("reputation: invalid review signature")
-	}
-	s.service.mergeReview(&r)
-	return nil
+	return s.service.mergeReview(&r)
 }
 
 // ReviewService manages marketplace-specific reviews. Reviews are gossiped
-// via Whisper StatefulMerge on the mercury.reviews topic.
+// via Whisper StatefulMerge on the mercury.reviews topic. records holds the
+// encoding of each review in reviews under reviewKey, written only by
+// mergeReview under mu, so the two never disagree.
 type ReviewService struct {
 	whisper *whisper.Engine
 	reviews map[string][]Review // hex(sellerPubKey) -> reviews
+	records *whisper.RecordSet  // reviewKey -> encoded review
 	mu      sync.RWMutex
 }
 
@@ -156,6 +143,7 @@ func NewReviewService(engine *whisper.Engine) *ReviewService {
 	rs := &ReviewService{
 		whisper: engine,
 		reviews: make(map[string][]Review),
+		records: whisper.NewRecordSet(),
 	}
 
 	store := &reviewStateStore{service: rs}
@@ -174,11 +162,10 @@ func NewReviewService(engine *whisper.Engine) *ReviewService {
 // Submit publishes a review. The review must be signed and valid.
 // Reviews require a valid OrderID (Sybil resistance -- reviews require economic activity).
 func (rs *ReviewService) Submit(review Review) error {
-	if err := validateReview(&review); err != nil {
+	// Apply locally, under the rule a peer's copy is admitted by.
+	if err := rs.mergeReview(&review); err != nil {
 		return err
 	}
-
-	rs.mergeReview(&review)
 
 	// Publish to gossip — mergeReview already applied local state above,
 	// so we skip cfg.Store.Apply (that path is for the gossip receive side).
@@ -242,24 +229,64 @@ func (rs *ReviewService) ReviewCount(pubkey ed25519.PublicKey) int {
 	return len(rs.reviews[key])
 }
 
-// mergeReview adds a review, deduplicating by reviewer + order.
-func (rs *ReviewService) mergeReview(r *Review) {
+// mergeReview admits one review, from Submit, from gossip
+// (reviewSubscriber.OnBroadcast) or from state sync (reviewStateStore.Apply),
+// under one rule, so a peer cannot place on one path a review another
+// refuses: validateReview's checks, then one review per reviewer per order.
+// When two versions of the same reviewer's review of an order meet, the
+// earlier Timestamp is kept, and an equal Timestamp is settled by the
+// smaller signature, so every node keeps the same one whatever order they
+// arrived in and the content fingerprints whisper compares can agree. A
+// review that does not replace the held one is not an error.
+func (rs *ReviewService) mergeReview(r *Review) error {
+	if err := validateReview(r); err != nil {
+		return err
+	}
 	sellerHex := hex.EncodeToString(r.SellerPubKey)
 	reviewerHex := hex.EncodeToString(r.ReviewerPubKey)
 
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
-	// Dedup: one review per reviewer per order
-	for _, existing := range rs.reviews[sellerHex] {
-		if hex.EncodeToString(existing.ReviewerPubKey) == reviewerHex &&
-			existing.OrderID == r.OrderID {
-			return
+	held := -1
+	for i, existing := range rs.reviews[sellerHex] {
+		if hex.EncodeToString(existing.ReviewerPubKey) == reviewerHex && existing.OrderID == r.OrderID {
+			held = i
+			break
 		}
+	}
+	if held >= 0 && !reviewSupersedes(r, &rs.reviews[sellerHex][held]) {
+		return nil
 	}
 
 	cp := *r
-	rs.reviews[sellerHex] = append(rs.reviews[sellerHex], cp)
+	data, err := json.Marshal(&cp)
+	if err != nil {
+		return fmt.Errorf("reputation: marshal review: %w", err)
+	}
+	if held >= 0 {
+		rs.reviews[sellerHex][held] = cp
+	} else {
+		rs.reviews[sellerHex] = append(rs.reviews[sellerHex], cp)
+	}
+	rs.records.Put(reviewKey(sellerHex, reviewerHex, r.OrderID), data)
+	return nil
+}
+
+// reviewSupersedes reports whether incoming replaces held for the same
+// reviewer and order: an earlier Timestamp, or the same Timestamp and a
+// smaller signature.
+func reviewSupersedes(incoming, held *Review) bool {
+	if !incoming.Timestamp.Equal(held.Timestamp) {
+		return incoming.Timestamp.Before(held.Timestamp)
+	}
+	return bytes.Compare(incoming.Signature, held.Signature) < 0
+}
+
+// reviewKey is a review's identity in the record set: the seller, the
+// reviewer and the order, the three fields mergeReview deduplicates on.
+func reviewKey(sellerHex, reviewerHex, orderID string) string {
+	return sellerHex + "/" + reviewerHex + "/" + orderID
 }
 
 // validateReview performs comprehensive validation on a review.
@@ -296,16 +323,14 @@ type reviewSubscriber struct {
 	service *ReviewService
 }
 
-// OnBroadcast implements whisper.Subscriber.
+// OnBroadcast implements whisper.Subscriber. A refused review is dropped:
+// gossip is best-effort.
 func (s *reviewSubscriber) OnBroadcast(topic string, from string, payload []byte) {
 	var r Review
 	if err := json.Unmarshal(payload, &r); err != nil {
 		return
 	}
-	if !r.Verify() {
-		return
-	}
-	s.service.mergeReview(&r)
+	_ = s.service.mergeReview(&r)
 }
 
 // MercuryReputation combines Plutus universal reputation with Mercury-specific reviews.
