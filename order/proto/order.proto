@@ -25,25 +25,25 @@ enum OrderStatus {
 // OrderIntent represents a buyer's signed intent to purchase.
 message OrderIntent {
   string id              = 1;
-  bytes  buyer_pub_key   = 2;  // 32-byte Ed25519 public key
-  bytes  seller_pub_key  = 3;  // 32-byte Ed25519 public key
-  string listing_id      = 4;
-  string variant_id      = 5;
+  bytes  buyerPubKey   = 2;    // 32-byte Ed25519 public key
+  bytes  sellerPubKey  = 3;    // 32-byte Ed25519 public key
+  string listingId      = 4;
+  string variantId      = 5;
   int32  quantity         = 6;
-  uint64 total_price      = 7;  // smallest currency unit
+  uint64 totalPrice      = 7;   // smallest currency unit
   string currency         = 8;  // e.g. "USDC", "BTC"
-  string chain_id         = 9;  // e.g. "polygon", "bitcoin"
-  bytes  shipping_addr   = 10;  // NaCl box encrypted with seller's pubkey
+  string chainId         = 9;   // e.g. "polygon", "bitcoin"
+  bytes  shippingAddr   = 10;   // NaCl box encrypted with seller's pubkey
   google.protobuf.Timestamp timestamp = 11;
   bytes  signature       = 12;  // Ed25519 signature by buyer
 }
 
 // FulfillmentCommitment is the seller's signed commitment to ship/deliver.
 message FulfillmentCommitment {
-  string order_id         = 1;
-  bytes  seller_pub_key   = 2;  // 32-byte Ed25519 public key
-  google.protobuf.Timestamp est_delivery = 3;
-  string tracking_info    = 4;  // encrypted tracking details
+  string orderId         = 1;
+  bytes  sellerPubKey   = 2;    // 32-byte Ed25519 public key
+  google.protobuf.Timestamp estDelivery = 3;
+  string trackingInfo    = 4;   // encrypted tracking details
   google.protobuf.Timestamp timestamp    = 5;
   bytes  signature        = 6;  // Ed25519 signature by seller
 }
@@ -59,7 +59,7 @@ message OrderEnvelope {
 
 // StatusUpdate is a signed notification of an order state change.
 message StatusUpdate {
-  string      order_id  = 1;
+  string      orderId  = 1;
   OrderStatus status    = 2;
   string      reason    = 3;
   google.protobuf.Timestamp timestamp = 4;
