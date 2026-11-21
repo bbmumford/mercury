@@ -25,8 +25,7 @@ a signed `BalanceAttestation` on `plutus.<fp>.balance.response`. Clients
 returned attestations.
 
 This exists because WASM clients cannot `net.Dial` chain RPC — the mesh is
-their window onto chain state. See
-`_OTHER/mercury/witness-balance-query-guide.md` for the full protocol spec.
+their window onto chain state.
 
 ### Flags
 
