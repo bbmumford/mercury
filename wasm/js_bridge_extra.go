@@ -1,8 +1,8 @@
 //go:build js && wasm
 
 /*
- * Copyright (c) 2026 HSTLES / ORBTR Pty Ltd. All Rights Reserved.
- * Queries: licensing@hstles.com
+ * Copyright (c) 2026 Brandon Miller-Mumford.
+ * Licensed under the MIT License; see LICENSE.
  *
  * Additional JS-callable bridge methods wired into window.Mercury.
  * These extend js_bridge.go with the set of functions the marketplace

@@ -1,5 +1,5 @@
-// Copyright (c) 2026 HSTLES / ORBTR Pty Ltd. All Rights Reserved.
-// Queries: licensing@hstles.com
+// Copyright (c) 2026 Brandon Miller-Mumford.
+// Licensed under the MIT License; see LICENSE.
 
 // Package mesh is the shared mesh-participation runtime consumed by every
 // runtime that wants to join the Mercury / Plutus / Minerva mesh as a
