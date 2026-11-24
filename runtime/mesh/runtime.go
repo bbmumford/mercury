@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	pfile "github.com/bbmumford/minerva/persistence/file"
-	minerva_sdk "github.com/bbmumford/minerva/sdk"
 	"github.com/bbmumford/diststore/abuse"
 	"github.com/bbmumford/diststore/advertise"
 	"github.com/bbmumford/diststore/cache"
@@ -23,6 +21,8 @@ import (
 	"github.com/bbmumford/diststore/replicate"
 	"github.com/bbmumford/diststore/resolve"
 	mercury "github.com/bbmumford/mercury"
+	pfile "github.com/bbmumford/minerva/persistence/file"
+	minerva_sdk "github.com/bbmumford/minerva/sdk"
 	plutus "github.com/bbmumford/plutus"
 	btc "github.com/bbmumford/plutus/adapter/btc"
 

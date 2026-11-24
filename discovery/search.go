@@ -14,16 +14,16 @@ import (
 
 // SearchEntry is an indexed listing for full-text search.
 type SearchEntry struct {
-	ListingID   string   `json:"listingId"`
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Category    string   `json:"category"`
-	Price       uint64   `json:"price"`
-	SellerID    string   `json:"sellerId"`
-	Keywords    []string `json:"keywords,omitempty"`
-	Score       float64  `json:"score"`
+	ListingID   string    `json:"listingId"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Category    string    `json:"category"`
+	Price       uint64    `json:"price"`
+	SellerID    string    `json:"sellerId"`
+	Keywords    []string  `json:"keywords,omitempty"`
+	Score       float64   `json:"score"`
 	UpdatedAt   time.Time `json:"updatedAt"`
-	Reputation  float64  `json:"reputation"` // 0.0 - 1.0 normalised seller reputation
+	Reputation  float64   `json:"reputation"` // 0.0 - 1.0 normalised seller reputation
 }
 
 // SearchIndex is an in-memory inverted index for listing search.
@@ -31,8 +31,8 @@ type SearchEntry struct {
 // and price range queries with relevance-weighted ranking.
 type SearchIndex struct {
 	mu      sync.RWMutex
-	entries map[string]*SearchEntry       // listingID -> entry
-	tokens  map[string]map[string]bool    // token -> set of listingIDs
+	entries map[string]*SearchEntry    // listingID -> entry
+	tokens  map[string]map[string]bool // token -> set of listingIDs
 }
 
 // NewSearchIndex creates an empty search index.

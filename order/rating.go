@@ -38,7 +38,7 @@ func GenerateRatingKey() (*RatingKey, error) {
 type RatingData struct {
 	OrderID      string
 	SellerPubKey []byte
-	Rating       int    // 1-5 stars
+	Rating       int // 1-5 stars
 	Comment      string
 	RatingKeyPub []byte // public key of the RatingKey used to sign
 	Signature    []byte

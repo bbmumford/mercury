@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	ErrEmptyTree     = errors.New("merkle: cannot build tree from empty leaf set")
-	ErrInvalidProof  = errors.New("merkle: proof verification failed")
-	ErrLeafNotFound  = errors.New("merkle: leaf not found in tree")
+	ErrEmptyTree    = errors.New("merkle: cannot build tree from empty leaf set")
+	ErrInvalidProof = errors.New("merkle: proof verification failed")
+	ErrLeafNotFound = errors.New("merkle: leaf not found in tree")
 )
 
 // MerkleTree is a binary hash tree built from a sorted set of leaf hashes.

@@ -112,11 +112,11 @@ type MercurySDK struct {
 	// broadcasts, receipts, presence, attachments, ratchet and relay are all
 	// reachable via this single handle — Mercury no longer ships its own
 	// messaging implementation.
-	Messenger *minerva_messaging.Messenger
-	Profiles    *profile.ProfileService
-	Moderation  *moderation.ModerationService
-	Reviews     *reputation.ReviewService
-	Offline     *offline.OfflineManager
+	Messenger  *minerva_messaging.Messenger
+	Profiles   *profile.ProfileService
+	Moderation *moderation.ModerationService
+	Reviews    *reputation.ReviewService
+	Offline    *offline.OfflineManager
 
 	// Combined reputation (Plutus + Mercury reviews)
 	Reputation *reputation.MercuryReputation

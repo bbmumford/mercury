@@ -23,15 +23,15 @@ import (
 // fakeEscrowClient records every on-chain call the mesh makes so tests
 // can assert both the fact and the arguments of escalation.
 type fakeEscrowClient struct {
-	mu         sync.Mutex
-	opens      []fakeOpenCall
-	expires    []fakeExpireCall
-	posts      []string
-	creates    []onchain.CreatePinParams
-	openErr    error
-	expireErr  error
-	openCount  atomic.Int64
-	expCount   atomic.Int64
+	mu        sync.Mutex
+	opens     []fakeOpenCall
+	expires   []fakeExpireCall
+	posts     []string
+	creates   []onchain.CreatePinParams
+	openErr   error
+	expireErr error
+	openCount atomic.Int64
+	expCount  atomic.Int64
 }
 
 type fakeOpenCall struct {

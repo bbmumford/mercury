@@ -23,12 +23,12 @@ import (
 	"syscall"
 	"time"
 
-	minerva_sdk "github.com/bbmumford/minerva/sdk"
 	mercury "github.com/bbmumford/mercury"
 	"github.com/bbmumford/mercury/arbitration"
 	"github.com/bbmumford/mercury/discovery"
 	meshruntime "github.com/bbmumford/mercury/runtime/mesh"
 	"github.com/bbmumford/mercury/store"
+	minerva_sdk "github.com/bbmumford/minerva/sdk"
 	plutus "github.com/bbmumford/plutus"
 	plutusbtc "github.com/bbmumford/plutus/adapter/btc"
 	plutusevm "github.com/bbmumford/plutus/adapter/evm"

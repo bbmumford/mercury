@@ -12,10 +12,10 @@ import (
 
 // StoreVersion tracks the version and last-seen time for a replicated store.
 type StoreVersion struct {
-	StoreID    string
-	Version    uint64
-	SeenAt     time.Time
-	SellerHex  string // hex-encoded seller pubkey
+	StoreID   string
+	Version   uint64
+	SeenAt    time.Time
+	SellerHex string // hex-encoded seller pubkey
 }
 
 // FreshnessEnforcer tracks store root versions and enforces freshness rules.

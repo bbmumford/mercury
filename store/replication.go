@@ -587,7 +587,7 @@ func (s *pinSubscriber) OnBroadcast(topic string, from string, payload []byte) {
 // Core fields are protobuf-encoded for signing determinism; addresses
 // are carried in the JSON envelope so no proto changes are needed.
 type storeAdWire struct {
-	Core      []byte   `json:"core"`               // protobuf-encoded StoreAdProto
+	Core      []byte   `json:"core"`                // protobuf-encoded StoreAdProto
 	Addresses []string `json:"addresses,omitempty"` // custom announce addresses
 }
 
@@ -675,7 +675,7 @@ func unmarshalPinAnnouncement(data []byte) (*PinAnnouncement, error) {
 
 // proofWire is the JSON wire format for Merkle proofs.
 type proofWire struct {
-	LeafHash [32]byte       `json:"leaf"`
+	LeafHash [32]byte        `json:"leaf"`
 	Path     []proofNodeWire `json:"path"`
 }
 

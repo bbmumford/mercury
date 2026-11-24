@@ -48,12 +48,12 @@ const (
 // Reports are propagated via gossip (G3 rumor push) and are signals, not enforcement.
 type ContentReport struct {
 	ReporterPubKey ed25519.PublicKey `json:"reporterPubKey"`
-	ContentType    string           `json:"contentType"` // "listing", "profile", "message", "store"
-	ContentID      string           `json:"contentId"`
-	Reason         string           `json:"reason"` // "fraud", "illegal", "spam", "counterfeit", "other"
-	Details        string           `json:"details"`
-	Timestamp      time.Time        `json:"timestamp"`
-	Signature      []byte           `json:"signature"`
+	ContentType    string            `json:"contentType"` // "listing", "profile", "message", "store"
+	ContentID      string            `json:"contentId"`
+	Reason         string            `json:"reason"` // "fraud", "illegal", "spam", "counterfeit", "other"
+	Details        string            `json:"details"`
+	Timestamp      time.Time         `json:"timestamp"`
+	Signature      []byte            `json:"signature"`
 }
 
 // reportDigest computes the SHA-256 hash of all ContentReport fields except Signature.

@@ -17,10 +17,10 @@ import (
 
 // Transition errors.
 var (
-	ErrOrderNotFound       = errors.New("order: not found")
-	ErrInvalidTransition   = errors.New("order: invalid state transition")
-	ErrAlreadyExists       = errors.New("order: already exists")
-	ErrInvalidOrderIntent  = errors.New("order: invalid order intent")
+	ErrOrderNotFound      = errors.New("order: not found")
+	ErrInvalidTransition  = errors.New("order: invalid state transition")
+	ErrAlreadyExists      = errors.New("order: already exists")
+	ErrInvalidOrderIntent = errors.New("order: invalid order intent")
 )
 
 // validTransitions defines the allowed state machine edges.

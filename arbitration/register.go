@@ -50,11 +50,11 @@ var validSpecializations = map[string]bool{
 // marketplace-specific fields for Mercury dispute workflows.
 type MercuryArbitratorProfile struct {
 	PlutusPubKey    ed25519.PublicKey `json:"plutusPubKey"`
-	Specializations []string         `json:"specializations"` // "physical-goods", "digital-delivery", "services"
-	Languages       []string         `json:"languages"`
-	ResponseTime    time.Duration    `json:"responseTime"`
-	ActiveCases     int              `json:"activeCases"`
-	MaxConcurrent   int              `json:"maxConcurrent"`
+	Specializations []string          `json:"specializations"` // "physical-goods", "digital-delivery", "services"
+	Languages       []string          `json:"languages"`
+	ResponseTime    time.Duration     `json:"responseTime"`
+	ActiveCases     int               `json:"activeCases"`
+	MaxConcurrent   int               `json:"maxConcurrent"`
 }
 
 // ArbitrationService manages Mercury-specific arbitrator profiles on top of

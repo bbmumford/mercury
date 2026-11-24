@@ -57,12 +57,12 @@ type OrderParams struct {
 // SystemInfo describes the host operating system and runtime — returned to
 // the frontend so it can conditionally render desktop-only UI elements.
 type SystemInfo struct {
-	OS         string `json:"os"`          // runtime.GOOS (windows, darwin, linux)
-	Arch       string `json:"arch"`        // runtime.GOARCH (amd64, arm64)
-	GoVersion  string `json:"goVersion"`   // runtime.Version()
-	NumCPU     int    `json:"numCpu"`
-	DataDir    string `json:"dataDir"`     // configured persistence directory
-	IsDesktop  bool   `json:"isDesktop"`   // always true in the Wails build
+	OS        string `json:"os"`        // runtime.GOOS (windows, darwin, linux)
+	Arch      string `json:"arch"`      // runtime.GOARCH (amd64, arm64)
+	GoVersion string `json:"goVersion"` // runtime.Version()
+	NumCPU    int    `json:"numCpu"`
+	DataDir   string `json:"dataDir"`   // configured persistence directory
+	IsDesktop bool   `json:"isDesktop"` // always true in the Wails build
 }
 
 // App is the Wails application backend. It wraps MercurySDK and exposes

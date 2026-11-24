@@ -13,8 +13,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/bbmumford/minerva/identity"
-	minerva_sdk "github.com/bbmumford/minerva/sdk"
 	"github.com/bbmumford/diststore/abuse"
 	"github.com/bbmumford/diststore/advertise"
 	"github.com/bbmumford/diststore/cache"
@@ -25,6 +23,8 @@ import (
 	"github.com/bbmumford/diststore/replicate"
 	"github.com/bbmumford/diststore/resolve"
 	"github.com/bbmumford/diststore/storage"
+	"github.com/bbmumford/minerva/identity"
+	minerva_sdk "github.com/bbmumford/minerva/sdk"
 	plutusblob "github.com/bbmumford/plutus/blob"
 	"github.com/bbmumford/whisper"
 )

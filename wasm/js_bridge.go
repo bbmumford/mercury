@@ -92,17 +92,17 @@ type jsBridge struct {
 	disputes map[string]*arbitration.DisputeCase
 
 	// Shared services
-	engine      *whisper.Engine
-	orderMgr    *order.OrderManager
-	searchIdx   *discovery.SearchIndex
-	catMgr      *discovery.CategoryManager
-	messenger   *minerva_messaging.Messenger
-	profService *profile.ProfileService
-	reviewSvc   *reputation.ReviewService
-	mercuryRep  *reputation.MercuryReputation
-	feeCalc     *settle.FeeCalculator
-	arbService  *arbitration.ArbitrationService
-	disputeMgr  *arbitration.DisputeManager
+	engine       *whisper.Engine
+	orderMgr     *order.OrderManager
+	searchIdx    *discovery.SearchIndex
+	catMgr       *discovery.CategoryManager
+	messenger    *minerva_messaging.Messenger
+	profService  *profile.ProfileService
+	reviewSvc    *reputation.ReviewService
+	mercuryRep   *reputation.MercuryReputation
+	feeCalc      *settle.FeeCalculator
+	arbService   *arbitration.ArbitrationService
+	disputeMgr   *arbitration.DisputeManager
 	plutusArbReg *plutusArb.ArbitratorRegistry
 
 	// convSubs tracks registered Conversation.Subscribe handles so the UI
@@ -140,9 +140,9 @@ type storeState struct {
 
 // orderState holds per-order handle state on the WASM side.
 type orderState struct {
-	orderID    string
+	orderID     string
 	storeHandle int64
-	intent     interface{} // raw JS params preserved for reference
+	intent      interface{} // raw JS params preserved for reference
 }
 
 func newJSBridge() *jsBridge {
@@ -401,9 +401,9 @@ func (b *jsBridge) addListing(this js.Value, args []js.Value) interface{} {
 		}
 
 		listing := &store.Listing{
-			ID:       listingID,
-			StoreID:  ss.manager.StoreID(),
-			Active:   true,
+			ID:      listingID,
+			StoreID: ss.manager.StoreID(),
+			Active:  true,
 		}
 
 		if v := listingJS.Get("title"); !v.IsUndefined() {

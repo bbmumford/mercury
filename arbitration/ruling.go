@@ -45,7 +45,7 @@ func (ro RulingOutcome) String() string {
 // Ed25519 key. Percentages must sum to 100.
 type ArbitratorRuling struct {
 	CaseID           string            `json:"caseID"`
-	ArbitratorPubKey ed25519.PublicKey  `json:"arbitratorPubKey"`
+	ArbitratorPubKey ed25519.PublicKey `json:"arbitratorPubKey"`
 	Outcome          RulingOutcome     `json:"outcome"`
 	BuyerPercent     uint32            `json:"buyerPercent"`
 	SellerPercent    uint32            `json:"sellerPercent"`

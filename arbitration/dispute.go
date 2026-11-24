@@ -61,8 +61,8 @@ func (ds DisputeStatus) String() string {
 type DisputeCase struct {
 	ID               string            `json:"id"`
 	OrderID          string            `json:"orderID"`
-	FiledBy          ed25519.PublicKey  `json:"filedBy"`
-	ArbitratorPubKey ed25519.PublicKey  `json:"arbitratorPubKey"`
+	FiledBy          ed25519.PublicKey `json:"filedBy"`
+	ArbitratorPubKey ed25519.PublicKey `json:"arbitratorPubKey"`
 	Reason           string            `json:"reason"`
 	EvidenceHashes   [][]byte          `json:"evidenceHashes"`
 	Status           DisputeStatus     `json:"status"`
@@ -133,8 +133,8 @@ type DisputeManager struct {
 	arbService *ArbitrationService
 
 	mu    sync.RWMutex
-	cases map[string]*DisputeCase   // caseID -> case
-	order map[string][]string       // orderID -> []caseID
+	cases map[string]*DisputeCase // caseID -> case
+	order map[string][]string     // orderID -> []caseID
 }
 
 // NewDisputeManager creates a DisputeManager wired to the given

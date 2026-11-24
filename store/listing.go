@@ -9,11 +9,11 @@ import "time"
 // Listing represents a single item for sale in a store.
 type Listing struct {
 	ID           string
-	StoreID      string   // hex-encoded store owner pubkey hash
+	StoreID      string // hex-encoded store owner pubkey hash
 	Title        string
 	Description  string
-	Category     string   // dot-separated category path (e.g. "electronics.phones")
-	Price        uint64   // in smallest currency unit (e.g., cents)
+	Category     string // dot-separated category path (e.g. "electronics.phones")
+	Price        uint64 // in smallest currency unit (e.g., cents)
 	Currency     string
 	Images       []string // content-addressed CIDs
 	Keywords     []string // search keywords

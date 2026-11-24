@@ -50,12 +50,12 @@ type StoreRoot struct {
 // Fields are serialized via protobuf for canonical ordering.
 func (sr *StoreRoot) signingPayload() ([]byte, error) {
 	msg := &pb.StoreRootProto{
-		OwnerPubKey:   sr.OwnerPubKey,
-		Name:          sr.Name,
-		Description:   sr.Description,
-		Categories:    sr.Categories,
-		MerkleRoot:    sr.MerkleRoot,
-		Version:       sr.Version,
+		OwnerPubKey:     sr.OwnerPubKey,
+		Name:            sr.Name,
+		Description:     sr.Description,
+		Categories:      sr.Categories,
+		MerkleRoot:      sr.MerkleRoot,
+		Version:         sr.Version,
 		TimestampUnixMs: sr.Timestamp.UnixMilli(),
 	}
 	return proto.Marshal(msg)
@@ -97,14 +97,14 @@ func VerifyStoreRoot(root *StoreRoot) error {
 // StoreRootToProto converts a StoreRoot to its protobuf representation.
 func StoreRootToProto(sr *StoreRoot) *pb.StoreRootProto {
 	return &pb.StoreRootProto{
-		OwnerPubKey:   sr.OwnerPubKey,
-		Name:          sr.Name,
-		Description:   sr.Description,
-		Categories:    sr.Categories,
-		MerkleRoot:    sr.MerkleRoot,
-		Version:       sr.Version,
+		OwnerPubKey:     sr.OwnerPubKey,
+		Name:            sr.Name,
+		Description:     sr.Description,
+		Categories:      sr.Categories,
+		MerkleRoot:      sr.MerkleRoot,
+		Version:         sr.Version,
 		TimestampUnixMs: sr.Timestamp.UnixMilli(),
-		Signature:     sr.Signature,
+		Signature:       sr.Signature,
 	}
 }
 
@@ -241,4 +241,3 @@ func StoreID(ownerPubKey ed25519.PublicKey) string {
 	h := sha256.Sum256(ownerPubKey)
 	return encodeHex(h[:])
 }
-

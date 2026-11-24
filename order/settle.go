@@ -231,8 +231,8 @@ func (s *SettlementService) recordDisputeReputation(order *Order, ruling arbitra
 		buyerScore = 1   // buyer vindicated
 		sellerScore = -1 // seller penalised
 	case arbitration.RulingSellerWins:
-		buyerScore = -1  // buyer penalised (frivolous dispute)
-		sellerScore = 1  // seller vindicated
+		buyerScore = -1 // buyer penalised (frivolous dispute)
+		sellerScore = 1 // seller vindicated
 	case arbitration.RulingSplit:
 		buyerScore = 0  // neutral
 		sellerScore = 0 // neutral
