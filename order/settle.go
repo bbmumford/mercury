@@ -25,12 +25,25 @@ type PRCFeeResolver interface {
 	ResolveMaintainerBPS(chainID string) (uint32, error)
 }
 
+// escrowSettler is the escrow side of a settlement: releasing an order's escrow
+// to the seller, executing an arbitrator's ruling, and refunding after a
+// timeout. *escrow.EscrowManager satisfies it; SettlementService holds the
+// port so its order bookkeeping around each escrow call can be exercised
+// against an escrow that answers as a test needs.
+type escrowSettler interface {
+	Release(ctx context.Context, escrowAddr string, params escrow.ReleaseParams) (string, error)
+	SettleWithRuling(ctx context.Context, escrowAddr string, ruling escrow.Ruling) (string, error)
+	RefundAfterTimeout(ctx context.Context, escrowAddr string) (string, error)
+}
+
+var _ escrowSettler = (*escrow.EscrowManager)(nil)
+
 // SettlementService handles order-state-specific settlement logic.
 // It delegates fee calculation to Plutus FeeCalculator and escrow operations
 // to Plutus EscrowManager, adding Mercury order lifecycle management on top.
 type SettlementService struct {
 	plutusSettle *settle.FeeCalculator
-	plutusEscrow *escrow.EscrowManager
+	plutusEscrow escrowSettler
 	orders       *OrderManager
 	repService   *reputation.ReputationService
 	prcResolver  PRCFeeResolver
