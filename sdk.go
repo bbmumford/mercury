@@ -218,6 +218,7 @@ func New(config Config) (*MercurySDK, error) {
 		sdk.Engine,
 	)
 	sdk.Disputes = arbitration.NewDisputeManager(sdk.Arbitration)
+	sdk.Settlement.SetDisputeCases(sdk.Disputes)
 
 	// --- Discovery ---
 

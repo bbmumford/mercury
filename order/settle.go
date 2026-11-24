@@ -5,8 +5,10 @@
 package order
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -38,6 +40,26 @@ type escrowSettler interface {
 
 var _ escrowSettler = (*escrow.EscrowManager)(nil)
 
+// DisputeCases answers a dispute case by its id; *arbitration.DisputeManager
+// satisfies it. SettleDispute reads the case a ruling names to learn which
+// arbitrator the dispute was assigned.
+type DisputeCases interface {
+	GetCase(caseID string) (*arbitration.DisputeCase, error)
+}
+
+// Refusals SettleDispute answers before any escrow call, each for a ruling it
+// cannot attribute to the dispute's assigned arbitrator.
+var (
+	// ErrNoDisputeCases: SetDisputeCases was never called, so no ruling can be
+	// checked against its dispute.
+	ErrNoDisputeCases = errors.New("settlement: no dispute cases to check a ruling against")
+	// ErrRulingForAnotherOrder: the ruling's case is a dispute of another order.
+	ErrRulingForAnotherOrder = errors.New("settlement: the ruling's dispute is for another order")
+	// ErrRulingNotByAssignedArbitrator: the ruling is signed by a key other
+	// than the arbitrator its dispute was assigned.
+	ErrRulingNotByAssignedArbitrator = errors.New("settlement: the ruling is not signed by the dispute's assigned arbitrator")
+)
+
 // SettlementService handles order-state-specific settlement logic.
 // It delegates fee calculation to Plutus FeeCalculator and escrow operations
 // to Plutus EscrowManager, adding Mercury order lifecycle management on top.
@@ -47,6 +69,7 @@ type SettlementService struct {
 	orders       *OrderManager
 	repService   *reputation.ReputationService
 	prcResolver  PRCFeeResolver
+	disputes     DisputeCases
 }
 
 // NewSettlementService creates a SettlementService wired to Plutus for fee
@@ -68,6 +91,12 @@ func NewSettlementService(
 // fee (200 BPS / 2%).
 func (s *SettlementService) SetPRCFeeResolver(resolver PRCFeeResolver) {
 	s.prcResolver = resolver
+}
+
+// SetDisputeCases wires the dispute cases SettleDispute checks each ruling
+// against. Until it is set, SettleDispute refuses every ruling.
+func (s *SettlementService) SetDisputeCases(cases DisputeCases) {
+	s.disputes = cases
 }
 
 // SetReputationService wires the Plutus reputation service for recording
@@ -144,7 +173,8 @@ func (s *SettlementService) SettleOrder(ctx context.Context, orderID string) err
 // SettleDispute handles settlement after an arbitrator ruling.
 //
 // Steps:
-//  1. Verify the ruling signature
+//  1. Verify the ruling signature, and that its signer is the arbitrator the
+//     ruling's dispute was assigned, for this order
 //  2. Execute the ruling via Plutus escrow (SettleWithRuling)
 //  3. Update order status based on the ruling outcome
 //  4. Record dispute outcome in Plutus reputation service
@@ -152,6 +182,22 @@ func (s *SettlementService) SettleDispute(ctx context.Context, orderID string, r
 	// Step 1: Verify ruling signature.
 	if !arbitration.VerifyRuling(&ruling) {
 		return fmt.Errorf("settlement: ruling signature verification failed for order %s", orderID)
+	}
+	// A valid signature proves only that the ruling's own key signed it; the
+	// key must be the one the dispute was assigned, or any key could move the
+	// escrow.
+	if s.disputes == nil {
+		return ErrNoDisputeCases
+	}
+	dc, err := s.disputes.GetCase(ruling.CaseID)
+	if err != nil {
+		return fmt.Errorf("settlement: dispute %s of order %s: %w", ruling.CaseID, orderID, err)
+	}
+	if dc.OrderID != orderID {
+		return fmt.Errorf("%w: case %s is a dispute of order %s, not %s", ErrRulingForAnotherOrder, ruling.CaseID, dc.OrderID, orderID)
+	}
+	if !bytes.Equal(dc.ArbitratorPubKey, ruling.ArbitratorPubKey) {
+		return fmt.Errorf("%w: case %s", ErrRulingNotByAssignedArbitrator, ruling.CaseID)
 	}
 
 	// Validate that percentages sum to 100.
