@@ -21,6 +21,10 @@ var (
 	ErrInvalidTransition  = errors.New("order: invalid state transition")
 	ErrAlreadyExists      = errors.New("order: already exists")
 	ErrInvalidOrderIntent = errors.New("order: invalid order intent")
+	// ErrSettlementInProgress refuses a settlement, or any other status change,
+	// of an order another settlement holds between its status check and the
+	// outcome of its escrow call.
+	ErrSettlementInProgress = errors.New("order: a settlement of this order is in progress")
 )
 
 // validTransitions defines the allowed state machine edges.
@@ -56,6 +60,9 @@ type StatusChange struct {
 type OrderManager struct {
 	mu     sync.RWMutex
 	orders map[string]*Order
+	// settling holds the orders a settlement has claimed (beginSettlement); a
+	// claimed order changes status only through finishSettlement.
+	settling map[string]bool
 }
 
 // NewOrderManager creates an empty OrderManager.
@@ -112,11 +119,68 @@ func (m *OrderManager) Get(orderID string) (*Order, error) {
 	return o, nil
 }
 
-// transition applies a state change if the transition is valid.
+// transition applies a state change if the transition is valid and no
+// settlement holds the order.
 func (m *OrderManager) transition(orderID string, target OrderStatus, reason string) (*Order, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.settling[orderID] {
+		return nil, fmt.Errorf("%w: %s", ErrSettlementInProgress, orderID)
+	}
+	return m.transitionLocked(orderID, target, reason)
+}
 
+// beginSettlement claims orderID for one settlement, in the same critical
+// section as checking that its status is one of from. Until finishSettlement
+// or abandonSettlement, a second claim and every other status change of the
+// order are refused with ErrSettlementInProgress, so the escrow call a
+// settlement makes between its check and its status change runs at most once
+// per order. It answers a copy of the order as claimed.
+func (m *OrderManager) beginSettlement(orderID string, from ...OrderStatus) (Order, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	o, ok := m.orders[orderID]
+	if !ok {
+		return Order{}, ErrOrderNotFound
+	}
+	if m.settling[orderID] {
+		return Order{}, fmt.Errorf("%w: %s", ErrSettlementInProgress, orderID)
+	}
+	admitted := false
+	for _, st := range from {
+		if o.Status == st {
+			admitted = true
+		}
+	}
+	if !admitted {
+		return Order{}, fmt.Errorf("%w: order %s is in status %s, expected %v", ErrInvalidTransition, orderID, o.Status, from)
+	}
+	if m.settling == nil {
+		m.settling = make(map[string]bool)
+	}
+	m.settling[orderID] = true
+	return *o, nil
+}
+
+// finishSettlement releases a settlement's claim on orderID and applies the
+// status its escrow call settled, in one critical section.
+func (m *OrderManager) finishSettlement(orderID string, target OrderStatus, reason string) (*Order, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.settling, orderID)
+	return m.transitionLocked(orderID, target, reason)
+}
+
+// abandonSettlement releases a settlement's claim on orderID with its status
+// unchanged, after its escrow call failed, so the settlement can be retried.
+func (m *OrderManager) abandonSettlement(orderID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.settling, orderID)
+}
+
+// transitionLocked applies a valid state change; the caller holds m.mu.
+func (m *OrderManager) transitionLocked(orderID string, target OrderStatus, reason string) (*Order, error) {
 	o, ok := m.orders[orderID]
 	if !ok {
 		return nil, ErrOrderNotFound
@@ -181,12 +245,21 @@ func (m *OrderManager) MarkFulfilled(orderID string) (*Order, error) {
 
 // Complete transitions from Fulfilled to Completed (buyer confirmed receipt).
 func (m *OrderManager) Complete(orderID string) (*Order, error) {
-	o, err := m.transition(orderID, OrderCompleted, "buyer confirmed receipt")
+	o, err := m.transition(orderID, OrderCompleted, completedReason)
 	if err == nil {
-		observability.OrderSettledCount().Add(context.Background(), 1,
-			observability.AttrSet(attribute.String(observability.AttrOrderID, orderID)))
+		countSettled(orderID)
 	}
 	return o, err
+}
+
+// completedReason is the history reason of a Fulfilled order's completion,
+// whether Complete or a settlement applies it.
+const completedReason = "buyer confirmed receipt"
+
+// countSettled counts one order completed from Fulfilled.
+func countSettled(orderID string) {
+	observability.OrderSettledCount().Add(context.Background(), 1,
+		observability.AttrSet(attribute.String(observability.AttrOrderID, orderID)))
 }
 
 // Dispute transitions an order to Disputed. Valid from Funded, Accepted, or Fulfilled.

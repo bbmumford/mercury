@@ -113,16 +113,20 @@ func (s *SettlementService) SetReputationService(rep *reputation.ReputationServi
 //  3. Release escrow via Plutus EscrowManager
 //  4. Update order status to Completed
 func (s *SettlementService) SettleOrder(ctx context.Context, orderID string) error {
-	// Step 1: Get the order and verify status.
-	order, err := s.orders.Get(orderID)
+	// Step 1: Claim the order, checking its status in the same step: a
+	// concurrent settlement, or any other status change, is refused until the
+	// escrow call's outcome is recorded.
+	claimed, err := s.orders.beginSettlement(orderID, OrderFulfilled, OrderCompleted)
 	if err != nil {
 		return fmt.Errorf("settlement: %w", err)
 	}
-
-	if order.Status != OrderFulfilled && order.Status != OrderCompleted {
-		return fmt.Errorf("settlement: order %s is in status %s, expected Fulfilled or Completed",
-			orderID, order.Status)
-	}
+	order := &claimed
+	finished := false
+	defer func() {
+		if !finished {
+			s.orders.abandonSettlement(orderID)
+		}
+	}()
 
 	// If already completed, nothing to do.
 	if order.Status == OrderCompleted {
@@ -162,10 +166,12 @@ func (s *SettlementService) SettleOrder(ctx context.Context, orderID string) err
 	}
 
 	// Step 4: Update order status to Completed.
-	_, err = s.orders.Complete(orderID)
+	finished = true
+	_, err = s.orders.finishSettlement(orderID, OrderCompleted, completedReason)
 	if err != nil {
 		return fmt.Errorf("settlement: complete order %s: %w", orderID, err)
 	}
+	countSettled(orderID)
 
 	return nil
 }
@@ -206,15 +212,20 @@ func (s *SettlementService) SettleDispute(ctx context.Context, orderID string, r
 			ruling.BuyerPercent, ruling.SellerPercent)
 	}
 
-	// Verify the order exists and is in Disputed status.
-	order, err := s.orders.Get(orderID)
+	// Claim the disputed order, checking its status in the same step, so the
+	// ruling executes at most once: a concurrent settlement, or any other
+	// status change, is refused until the escrow call's outcome is recorded.
+	claimed, err := s.orders.beginSettlement(orderID, OrderDisputed)
 	if err != nil {
 		return fmt.Errorf("settlement: %w", err)
 	}
-	if order.Status != OrderDisputed {
-		return fmt.Errorf("settlement: order %s is in status %s, expected Disputed",
-			orderID, order.Status)
-	}
+	order := &claimed
+	finished := false
+	defer func() {
+		if !finished {
+			s.orders.abandonSettlement(orderID)
+		}
+	}()
 
 	// Step 2: Execute ruling via Plutus escrow.
 	plutusRuling := escrow.Ruling{
@@ -230,7 +241,8 @@ func (s *SettlementService) SettleDispute(ctx context.Context, orderID string, r
 	}
 
 	// Step 3: Update order status to Completed (dispute resolved).
-	_, err = s.orders.ResolveDispute(orderID, fmt.Sprintf("ruling:%s:buyer=%d%%:seller=%d%%",
+	finished = true
+	_, err = s.orders.finishSettlement(orderID, OrderCompleted, fmt.Sprintf("dispute resolved: ruling:%s:buyer=%d%%:seller=%d%%",
 		ruling.Outcome, ruling.BuyerPercent, ruling.SellerPercent))
 	if err != nil {
 		return fmt.Errorf("settlement: resolve dispute for order %s: %w", orderID, err)
@@ -251,26 +263,29 @@ func (s *SettlementService) SettleDispute(ctx context.Context, orderID string, r
 //  2. Trigger refund via Plutus escrow RefundAfterTimeout
 //  3. Update order status to TimedOut
 func (s *SettlementService) RefundTimedOut(ctx context.Context, orderID string) error {
-	// Step 1: Get the order and verify status.
-	order, err := s.orders.Get(orderID)
-	if err != nil {
+	// Step 1: Claim the order, checking in the same step that it is refundable
+	// (Funded or Accepted, the states an escrow timeout refunds), so the refund
+	// runs at most once: a concurrent settlement, or any other status change, is
+	// refused until the escrow call's outcome is recorded.
+	if _, err := s.orders.beginSettlement(orderID, OrderFunded, OrderAccepted); err != nil {
 		return fmt.Errorf("settlement: %w", err)
 	}
-
-	// Refunds are valid from Funded or Accepted states (escrow timeout).
-	if order.Status != OrderFunded && order.Status != OrderAccepted {
-		return fmt.Errorf("settlement: order %s is in status %s, cannot refund (expected Funded or Accepted)",
-			orderID, order.Status)
-	}
+	finished := false
+	defer func() {
+		if !finished {
+			s.orders.abandonSettlement(orderID)
+		}
+	}()
 
 	// Step 2: Trigger refund via Plutus escrow.
-	_, err = s.plutusEscrow.RefundAfterTimeout(ctx, orderID)
+	_, err := s.plutusEscrow.RefundAfterTimeout(ctx, orderID)
 	if err != nil {
 		return fmt.Errorf("settlement: refund escrow for order %s: %w", orderID, err)
 	}
 
 	// Step 3: Update order status to TimedOut.
-	_, err = s.orders.Timeout(orderID)
+	finished = true
+	_, err = s.orders.finishSettlement(orderID, OrderTimedOut, "escrow timeout")
 	if err != nil {
 		return fmt.Errorf("settlement: timeout order %s: %w", orderID, err)
 	}
