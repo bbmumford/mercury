@@ -7,7 +7,7 @@ require (
 	github.com/bbmumford/ledger v0.0.20
 	github.com/bbmumford/minerva v0.0.1
 	github.com/bbmumford/plutus v0.0.1
-	github.com/bbmumford/whisper v0.0.15
+	github.com/bbmumford/whisper v0.0.19
 	github.com/wailsapp/wails/v2 v2.12.0
 	go.opentelemetry.io/otel v1.42.0
 	golang.org/x/crypto v0.50.0
@@ -96,7 +96,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
 	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
