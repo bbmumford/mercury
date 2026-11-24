@@ -64,8 +64,7 @@ Importers in the ORBTR estate:
 ## Platforms and build
 
 Pure Go, no cgo in mercury itself. `cmd/mercury` builds only with the `wails`
-build tag (`wails build`), and `wasm` only for js/wasm; the js/wasm build
-also needs minerva's `sdk` to build for js. The module's `go` directive is
+build tag (`wails build`), and `wasm` only for js/wasm. The module's `go` directive is
 1.25.0. Releases are cut by release-please from conventional commits.
 
 ## Licence
