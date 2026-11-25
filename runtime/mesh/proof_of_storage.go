@@ -10,7 +10,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/bbmumford/ledger/blob/distributed/onchain"
+	"github.com/bbmumford/diststore/onchain"
 	"github.com/bbmumford/whisper"
 )
 

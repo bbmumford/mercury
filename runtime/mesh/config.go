@@ -30,7 +30,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/bbmumford/ledger/blob/distributed/onchain"
+	"github.com/bbmumford/diststore/onchain"
 )
 
 // defaultNeutrinoBirthHeight — pre-Segwit blocks are uninteresting for any

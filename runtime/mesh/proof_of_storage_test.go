@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bbmumford/ledger/blob/distributed/onchain"
+	"github.com/bbmumford/diststore/onchain"
 )
 
 // fakeEscrowClient records every on-chain call the mesh makes so tests
