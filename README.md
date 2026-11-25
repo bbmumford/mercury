@@ -43,9 +43,9 @@ A nil `StoreOwnerKey` generates a new Ed25519 key pair.
   witnesses, arbitrators, reputation, observability): payment and settlement.
 - `github.com/bbmumford/whisper`: the marketplace's gossip topics.
 - `github.com/bbmumford/diststore` (`abuse`, `advertise`, `cache`, `crypto`,
-  `fetch`, `quota`, `rarest`, `replicate`, `resolve`, `storage`) and
-  `github.com/bbmumford/ledger` (`cache`, `blob/distributed/onchain`): the
-  blob replicator and its proof of storage in `runtime/mesh`.
+  `fetch`, `onchain`, `quota`, `rarest`, `replicate`, `resolve`, `storage`):
+  the blob replicator and its proof of storage in `runtime/mesh`.
+- `github.com/bbmumford/ledger` (`cache`): the directory cache.
 - `github.com/ORBTR/aether` (`runtime/mesh`).
 - `github.com/wailsapp/wails/v2` (the desktop application),
   `go.opentelemetry.io/otel`, `golang.org/x/crypto` and
