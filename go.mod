@@ -16,8 +16,13 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
+	github.com/bbmumford/filekind v0.1.2 // indirect
 	github.com/bbmumford/ratelimit v0.1.0 // indirect
+	github.com/ebitengine/purego v0.9.1 // indirect
+	github.com/tursodatabase/turso-go-platform-libs v0.8.4 // indirect
+	github.com/zeebo/blake3 v0.2.4 // indirect
 	golang.org/x/sync v0.20.0 // indirect
+	turso.tech/database/tursogo v0.8.4 // indirect
 )
 
 require (
