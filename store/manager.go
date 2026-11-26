@@ -199,41 +199,46 @@ func (sm *StoreManager) getListing(listingID string) (*Listing, error) {
 
 	l := &Listing{ID: listingID}
 
-	// Unmarshal each field from the LWW-Map.
-	unmarshalField(titleBytes, &l.Title)
-	if v, ok := sm.lwwMap.Get(fieldKey(listingID, "description")); ok {
-		unmarshalField(v, &l.Description)
+	// Unmarshal each field from the LWW-Map. A field that does not decode is
+	// refused: the map's values arrive by gossip, and a listing read with a
+	// field silently left at its zero value (a price of 0) must never be
+	// served as the listing.
+	if err := unmarshalField(titleBytes, &l.Title); err != nil {
+		return nil, fieldError(listingID, "title", err)
 	}
-	if v, ok := sm.lwwMap.Get(fieldKey(listingID, "price")); ok {
-		unmarshalField(v, &l.Price)
+	for _, f := range []struct {
+		name   string
+		target any
+	}{
+		{"description", &l.Description},
+		{"price", &l.Price},
+		{"currency", &l.Currency},
+		{"images", &l.Images},
+		{"variants", &l.Variants},
+		{"shippingOpts", &l.ShippingOpts},
+		{"digital", &l.Digital},
+		{"digitalCID", &l.DigitalCID},
+	} {
+		if v, ok := sm.lwwMap.Get(fieldKey(listingID, f.name)); ok {
+			if err := unmarshalField(v, f.target); err != nil {
+				return nil, fieldError(listingID, f.name, err)
+			}
+		}
 	}
-	if v, ok := sm.lwwMap.Get(fieldKey(listingID, "currency")); ok {
-		unmarshalField(v, &l.Currency)
-	}
-	if v, ok := sm.lwwMap.Get(fieldKey(listingID, "images")); ok {
-		unmarshalField(v, &l.Images)
-	}
-	if v, ok := sm.lwwMap.Get(fieldKey(listingID, "variants")); ok {
-		unmarshalField(v, &l.Variants)
-	}
-	if v, ok := sm.lwwMap.Get(fieldKey(listingID, "shippingOpts")); ok {
-		unmarshalField(v, &l.ShippingOpts)
-	}
-	if v, ok := sm.lwwMap.Get(fieldKey(listingID, "digital")); ok {
-		unmarshalField(v, &l.Digital)
-	}
-	if v, ok := sm.lwwMap.Get(fieldKey(listingID, "digitalCID")); ok {
-		unmarshalField(v, &l.DigitalCID)
-	}
-	if v, ok := sm.lwwMap.Get(fieldKey(listingID, "createdAt")); ok {
-		var ms int64
-		unmarshalField(v, &ms)
-		l.CreatedAt = time.UnixMilli(ms)
-	}
-	if v, ok := sm.lwwMap.Get(fieldKey(listingID, "updatedAt")); ok {
-		var ms int64
-		unmarshalField(v, &ms)
-		l.UpdatedAt = time.UnixMilli(ms)
+	for _, f := range []struct {
+		name   string
+		target *time.Time
+	}{
+		{"createdAt", &l.CreatedAt},
+		{"updatedAt", &l.UpdatedAt},
+	} {
+		if v, ok := sm.lwwMap.Get(fieldKey(listingID, f.name)); ok {
+			var ms int64
+			if err := unmarshalField(v, &ms); err != nil {
+				return nil, fieldError(listingID, f.name, err)
+			}
+			*f.target = time.UnixMilli(ms)
+		}
 	}
 
 	return l, nil
@@ -251,7 +256,7 @@ func (sm *StoreManager) AllListings() []*Listing {
 	for _, id := range ids {
 		l, err := sm.getListing(id)
 		if err != nil {
-			continue // deleted or incomplete
+			continue // deleted, incomplete, or a field does not decode
 		}
 		listings = append(listings, l)
 	}
@@ -420,11 +425,17 @@ func mustJSON(v any) json.RawMessage {
 	return data
 }
 
-// unmarshalField extracts a value from a JSON-encoded listingField.
-func unmarshalField(data []byte, target any) {
+// unmarshalField extracts a value from a JSON-encoded listingField, and
+// returns the error when either the envelope or its value does not decode.
+func unmarshalField(data []byte, target any) error {
 	var f listingField
 	if err := json.Unmarshal(data, &f); err != nil {
-		return
+		return err
 	}
-	_ = json.Unmarshal(f.Value, target)
+	return json.Unmarshal(f.Value, target)
+}
+
+// fieldError names the listing and the field that failed to decode.
+func fieldError(listingID, field string, err error) error {
+	return fmt.Errorf("%w: listing %s field %s: %v", ErrListingFieldInvalid, listingID, field, err)
 }

@@ -20,8 +20,11 @@ var (
 	ErrNilPrivateKey    = errors.New("store: private key is nil")
 	ErrVersionRollback  = errors.New("store: version rollback not allowed")
 	ErrListingNotFound  = errors.New("store: listing not found")
-	ErrStoreNotFound    = errors.New("store: store not found")
-	ErrMediaTooLarge    = errors.New("store: media exceeds size limit")
+	// ErrListingFieldInvalid is returned when a stored listing field does not
+	// decode; the listing is not served with that field at its zero value.
+	ErrListingFieldInvalid = errors.New("store: listing field does not decode")
+	ErrStoreNotFound       = errors.New("store: store not found")
+	ErrMediaTooLarge       = errors.New("store: media exceeds size limit")
 )
 
 const (
