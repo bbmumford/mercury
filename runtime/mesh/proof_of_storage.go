@@ -345,7 +345,7 @@ func (r *Runtime) buildOnChainChallengeInputs(ctx context.Context, cid string) (
 // via Config.EscrowClient).
 func keccakCIDASCII(cid string) []byte {
 	h := newKeccak256()
-	h.Write([]byte(cid))
+	_, _ = h.Write([]byte(cid)) // a hash's Write never returns an error
 	return h.Sum(nil)
 }
 

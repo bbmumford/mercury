@@ -247,7 +247,7 @@ func validateCategory(category string) error {
 			return fmt.Errorf("discovery: category %q has empty segment", category)
 		}
 		for _, c := range part {
-			if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+			if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
 				return fmt.Errorf("discovery: category %q contains invalid character %q (must be lowercase alphanumeric)", category, string(c))
 			}
 		}

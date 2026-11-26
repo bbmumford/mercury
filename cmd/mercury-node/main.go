@@ -550,7 +550,9 @@ func (t *httpRPCTransport) SendRPC(ctx context.Context, chainID string, method s
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	// The body is read whole below or its read error returned; a close error
+	// after that changes nothing the caller gets.
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err

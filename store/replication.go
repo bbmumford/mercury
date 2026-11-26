@@ -721,7 +721,7 @@ func marshalProof(p *MerkleProof) ([]byte, error) {
 	w := proofWire{LeafHash: p.LeafHash}
 	w.Path = make([]proofNodeWire, len(p.Path))
 	for i, n := range p.Path {
-		w.Path[i] = proofNodeWire{Hash: n.Hash, IsRight: n.IsRight}
+		w.Path[i] = proofNodeWire(n)
 	}
 	return json.Marshal(w)
 }
@@ -734,7 +734,7 @@ func unmarshalProof(data []byte) (*MerkleProof, error) {
 	p := &MerkleProof{LeafHash: w.LeafHash}
 	p.Path = make([]ProofNode, len(w.Path))
 	for i, n := range w.Path {
-		p.Path[i] = ProofNode{Hash: n.Hash, IsRight: n.IsRight}
+		p.Path[i] = ProofNode(n)
 	}
 	return p, nil
 }
