@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/ORBTR/aether v0.0.15
-	github.com/bbmumford/ledger v0.0.20
+	github.com/bbmumford/ledger v0.0.21
 	github.com/bbmumford/minerva v0.0.1
 	github.com/bbmumford/plutus v0.0.1
 	github.com/bbmumford/whisper v0.0.19
@@ -23,7 +23,7 @@ require (
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
 	github.com/aead/siphash v1.0.1 // indirect
-	github.com/bbmumford/diststore v0.0.1
+	github.com/bbmumford/diststore v0.1.0
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6 // indirect
