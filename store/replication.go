@@ -270,9 +270,27 @@ func (r *ReplicationManager) Advertise(ctx context.Context) error {
 	return nil
 }
 
+// unpin takes back a pin Replicate made when its announcement could not be
+// signed, encoded or published: a pin peers never heard of is not held, so the
+// caller can replicate the same root again (a held pin of that version would
+// answer ErrStaleVersion). The pin a newer call has since replaced is left
+// alone. Callers hold r.mu.
+func (r *ReplicationManager) unpin(storeID string, pin, prev *pinnedStore, hadPrev bool) {
+	if r.pinned[storeID] != pin {
+		return
+	}
+	if hadPrev {
+		r.pinned[storeID] = prev
+	} else {
+		delete(r.pinned, storeID)
+	}
+}
+
 // Replicate pins a remote store by fetching its data and storing it locally.
 // The storeRoot must have a valid signature. If a newer version is already
-// pinned, ErrStaleVersion is returned.
+// pinned, ErrStaleVersion is returned. With a replicator identity set, the pin
+// is announced on TopicStoreReplicate; when the announcement cannot be signed,
+// encoded or published, the pin is taken back and the error returned.
 func (r *ReplicationManager) Replicate(ctx context.Context, storeRoot StoreRoot) error {
 	ctx, span := observability.Tracer("mercury.store").Start(ctx, "ReplicationManager.Replicate")
 	defer span.End()
@@ -301,13 +319,16 @@ func (r *ReplicationManager) Replicate(ctx context.Context, storeRoot StoreRoot)
 	}
 
 	// Pin the store root (listings will be populated by ServeStore or delta sync).
-	r.pinned[storeID] = &pinnedStore{
+	prev, hadPrev := r.pinned[storeID]
+	pin := &pinnedStore{
 		root:     &storeRoot,
 		listings: nil,
 		pinnedAt: time.Now(),
 	}
+	r.pinned[storeID] = pin
 
 	// Build pin announcement while holding the lock.
+	var announceErr error
 	if r.replicatorPubKey != nil && r.replicatorPriv != nil {
 		pa := &PinAnnouncement{
 			ReplicatorPubKey: r.replicatorPubKey,
@@ -315,16 +336,28 @@ func (r *ReplicationManager) Replicate(ctx context.Context, storeRoot StoreRoot)
 			StoreVersion:     storeRoot.Version,
 			CapacityMB:       r.capacityMB,
 		}
-		if err := SignPinAnnouncement(pa, r.replicatorPriv); err == nil {
-			pinData, _ = marshalPinAnnouncement(pa)
+		if announceErr = SignPinAnnouncement(pa, r.replicatorPriv); announceErr == nil {
+			pinData, announceErr = marshalPinAnnouncement(pa)
 		}
+	}
+	if announceErr != nil {
+		r.unpin(storeID, pin, prev, hadPrev)
 	}
 
 	r.mu.Unlock()
 
 	// Publish outside the lock to avoid deadlock with subscriber callbacks.
-	if pinData != nil {
-		_ = r.whisper.Publish(TopicStoreReplicate, pinData)
+	if announceErr == nil && pinData != nil {
+		if announceErr = r.whisper.Publish(TopicStoreReplicate, pinData); announceErr != nil {
+			r.mu.Lock()
+			r.unpin(storeID, pin, prev, hadPrev)
+			r.mu.Unlock()
+		}
+	}
+	if announceErr != nil {
+		wrapped := fmt.Errorf("replication: announce pin of store %s: %w", storeID, announceErr)
+		observability.RecordError(span, wrapped)
+		return wrapped
 	}
 
 	span.SetAttributes(attribute.String("mercury.store.id", storeID))
