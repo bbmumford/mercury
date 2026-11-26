@@ -123,7 +123,9 @@ func TestStoreRootProtoRoundTrip(t *testing.T) {
 		Version:     42,
 		Timestamp:   time.UnixMilli(time.Now().UnixMilli()), // truncate for comparison
 	}
-	SignStoreRoot(root, priv)
+	if err := SignStoreRoot(root, priv); err != nil {
+		t.Fatalf("SignStoreRoot: %v", err)
+	}
 
 	msg := StoreRootToProto(root)
 	back := StoreRootFromProto(msg)
@@ -252,7 +254,9 @@ func TestAddAndGetListing(t *testing.T) {
 
 func TestUpdateListing(t *testing.T) {
 	sm := testStoreManager(t)
-	sm.AddListing(testListing("item-1"))
+	if err := sm.AddListing(testListing("item-1")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 
 	err := sm.UpdateListing(&Listing{
 		ID:    "item-1",
@@ -278,7 +282,9 @@ func TestUpdateListing(t *testing.T) {
 
 func TestRemoveListing(t *testing.T) {
 	sm := testStoreManager(t)
-	sm.AddListing(testListing("item-1"))
+	if err := sm.AddListing(testListing("item-1")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 
 	if err := sm.RemoveListing("item-1"); err != nil {
 		t.Fatalf("remove: %v", err)
@@ -297,9 +303,15 @@ func TestRemoveListing(t *testing.T) {
 
 func TestAllListings(t *testing.T) {
 	sm := testStoreManager(t)
-	sm.AddListing(testListing("a"))
-	sm.AddListing(testListing("b"))
-	sm.AddListing(testListing("c"))
+	if err := sm.AddListing(testListing("a")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
+	if err := sm.AddListing(testListing("b")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
+	if err := sm.AddListing(testListing("c")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 
 	all := sm.AllListings()
 	if len(all) != 3 {
@@ -317,8 +329,12 @@ func TestRemoveNonexistent(t *testing.T) {
 
 func TestUpdateDeletedListing(t *testing.T) {
 	sm := testStoreManager(t)
-	sm.AddListing(testListing("item-1"))
-	sm.RemoveListing("item-1")
+	if err := sm.AddListing(testListing("item-1")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
+	if err := sm.RemoveListing("item-1"); err != nil {
+		t.Fatalf("sm.RemoveListing: %v", err)
+	}
 
 	err := sm.UpdateListing(&Listing{ID: "item-1", Title: "Ghost"})
 	if err != ErrListingNotFound {
@@ -330,7 +346,9 @@ func TestUpdateDeletedListing(t *testing.T) {
 
 func TestPublishIncrementsVersion(t *testing.T) {
 	sm := testStoreManager(t)
-	sm.AddListing(testListing("a"))
+	if err := sm.AddListing(testListing("a")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 
 	r1, err := sm.Publish()
 	if err != nil {
@@ -343,7 +361,9 @@ func TestPublishIncrementsVersion(t *testing.T) {
 		t.Fatalf("verify root 1: %v", err)
 	}
 
-	sm.AddListing(testListing("b"))
+	if err := sm.AddListing(testListing("b")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 	r2, err := sm.Publish()
 	if err != nil {
 		t.Fatalf("publish 2: %v", err)
@@ -426,8 +446,12 @@ func TestReplicationPinAndServe(t *testing.T) {
 	engine := whisper.NewEngine()
 	sm := testStoreManager(t)
 
-	sm.AddListing(testListing("item-1"))
-	sm.AddListing(testListing("item-2"))
+	if err := sm.AddListing(testListing("item-1")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
+	if err := sm.AddListing(testListing("item-2")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 
 	rm := NewReplicationManager(sm, engine)
 	if err := rm.RegisterTopics(); err != nil {
@@ -461,17 +485,25 @@ func TestReplicationPinAndServe(t *testing.T) {
 func TestReplicationRefuseStaleVersion(t *testing.T) {
 	engine := whisper.NewEngine()
 	sm := testStoreManager(t)
-	sm.AddListing(testListing("a"))
+	if err := sm.AddListing(testListing("a")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 
 	rm := NewReplicationManager(sm, engine)
-	rm.RegisterTopics()
+	if err := rm.RegisterTopics(); err != nil {
+		t.Fatalf("rm.RegisterTopics: %v", err)
+	}
 
 	root1, _ := sm.Publish()
-	sm.AddListing(testListing("b"))
+	if err := sm.AddListing(testListing("b")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 	root2, _ := sm.Publish()
 
 	// Pin version 2.
-	rm.Replicate(t.Context(), *root2)
+	if err := rm.Replicate(t.Context(), *root2); err != nil {
+		t.Fatalf("rm.Replicate: %v", err)
+	}
 
 	// Try to replicate version 1 (stale).
 	err := rm.Replicate(t.Context(), *root1)
@@ -483,13 +515,19 @@ func TestReplicationRefuseStaleVersion(t *testing.T) {
 func TestReplicationUnpin(t *testing.T) {
 	engine := whisper.NewEngine()
 	sm := testStoreManager(t)
-	sm.AddListing(testListing("a"))
+	if err := sm.AddListing(testListing("a")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 
 	rm := NewReplicationManager(sm, engine)
-	rm.RegisterTopics()
+	if err := rm.RegisterTopics(); err != nil {
+		t.Fatalf("rm.RegisterTopics: %v", err)
+	}
 
 	root, _ := sm.Publish()
-	rm.Replicate(t.Context(), *root)
+	if err := rm.Replicate(t.Context(), *root); err != nil {
+		t.Fatalf("rm.Replicate: %v", err)
+	}
 
 	storeID := sm.StoreID()
 	if err := rm.Unpin(storeID); err != nil {
@@ -504,8 +542,12 @@ func TestReplicationServeLocal(t *testing.T) {
 	engine := whisper.NewEngine()
 	sm := testStoreManager(t)
 
-	sm.AddListing(testListing("item-1"))
-	sm.Publish()
+	if err := sm.AddListing(testListing("item-1")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
+	if _, err := sm.Publish(); err != nil {
+		t.Fatalf("sm.Publish: %v", err)
+	}
 
 	rm := NewReplicationManager(sm, engine)
 
@@ -535,17 +577,25 @@ func TestReplicationServePinned(t *testing.T) {
 	engine := whisper.NewEngine()
 	sm := testStoreManager(t)
 
-	sm.AddListing(testListing("item-1"))
+	if err := sm.AddListing(testListing("item-1")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 
 	rm := NewReplicationManager(sm, engine)
-	rm.RegisterTopics()
+	if err := rm.RegisterTopics(); err != nil {
+		t.Fatalf("rm.RegisterTopics: %v", err)
+	}
 
 	root, _ := sm.Publish()
-	rm.Replicate(t.Context(), *root)
+	if err := rm.Replicate(t.Context(), *root); err != nil {
+		t.Fatalf("rm.Replicate: %v", err)
+	}
 
 	// Set pinned listings data.
 	storeID := sm.StoreID()
-	rm.SetPinnedListings(storeID, []*Listing{testListing("item-1")})
+	if err := rm.SetPinnedListings(storeID, []*Listing{testListing("item-1")}); err != nil {
+		t.Fatalf("rm.SetPinnedListings: %v", err)
+	}
 
 	resp, err := rm.ServeStore(t.Context(), "buyer-2", StoreRequest{
 		StoreID:   storeID,
@@ -611,13 +661,17 @@ func TestStoreAdSignVerify(t *testing.T) {
 func TestMultipleReplicatorsSameStore(t *testing.T) {
 	engine := whisper.NewEngine()
 	sm := testStoreManager(t)
-	sm.AddListing(testListing("a"))
+	if err := sm.AddListing(testListing("a")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
 
 	root, _ := sm.Publish()
 
 	// Create two replicators.
 	rm1 := NewReplicationManager(sm, engine)
-	rm1.RegisterTopics()
+	if err := rm1.RegisterTopics(); err != nil {
+		t.Fatalf("rm1.RegisterTopics: %v", err)
+	}
 
 	// rm2 shares the engine but has its own pinned state.
 	rm2 := &ReplicationManager{
@@ -627,8 +681,12 @@ func TestMultipleReplicatorsSameStore(t *testing.T) {
 		pinned:  make(map[string]*pinnedStore),
 	}
 
-	rm1.Replicate(t.Context(), *root)
-	rm2.Replicate(t.Context(), *root)
+	if err := rm1.Replicate(t.Context(), *root); err != nil {
+		t.Fatalf("rm1.Replicate: %v", err)
+	}
+	if err := rm2.Replicate(t.Context(), *root); err != nil {
+		t.Fatalf("rm2.Replicate: %v", err)
+	}
 
 	storeID := sm.StoreID()
 	if !rm1.IsPinned(storeID) {
@@ -642,14 +700,24 @@ func TestMultipleReplicatorsSameStore(t *testing.T) {
 func TestPeerCountTracking(t *testing.T) {
 	engine := whisper.NewEngine()
 	sm := testStoreManager(t)
-	sm.AddListing(testListing("a"))
-	sm.Publish()
+	if err := sm.AddListing(testListing("a")); err != nil {
+		t.Fatalf("sm.AddListing: %v", err)
+	}
+	if _, err := sm.Publish(); err != nil {
+		t.Fatalf("sm.Publish: %v", err)
+	}
 
 	rm := NewReplicationManager(sm, engine)
 
-	rm.ServeStore(t.Context(), "peer-1", StoreRequest{StoreID: sm.StoreID()})
-	rm.ServeStore(t.Context(), "peer-2", StoreRequest{StoreID: sm.StoreID()})
-	rm.ServeStore(t.Context(), "peer-1", StoreRequest{StoreID: sm.StoreID()}) // duplicate
+	if _, err := rm.ServeStore(t.Context(), "peer-1", StoreRequest{StoreID: sm.StoreID()}); err != nil {
+		t.Fatalf("rm.ServeStore: %v", err)
+	}
+	if _, err := rm.ServeStore(t.Context(), "peer-2", StoreRequest{StoreID: sm.StoreID()}); err != nil {
+		t.Fatalf("rm.ServeStore: %v", err)
+	}
+	if _, err := rm.ServeStore(t.Context(), "peer-1", StoreRequest{StoreID: sm.StoreID()}); err != nil {
+		t.Fatalf("rm.ServeStore: %v", err)
+	} // duplicate
 
 	if rm.PeerCount() != 2 {
 		t.Fatalf("expected 2 peers, got %d", rm.PeerCount())
