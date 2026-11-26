@@ -3,7 +3,7 @@ module github.com/bbmumford/mercury
 go 1.25.0
 
 require (
-	github.com/ORBTR/aether v0.0.15
+	github.com/ORBTR/aether v0.0.118
 	github.com/bbmumford/ledger v0.0.21
 	github.com/bbmumford/minerva v0.0.1
 	github.com/bbmumford/plutus v0.0.1
