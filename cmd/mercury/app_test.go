@@ -16,8 +16,8 @@ import (
 )
 
 // TestLoadMeshSettings_MissingFileReturnsDefaults verifies that a
-// fresh install (no settings.json yet) degrades to DESIGN §19 Wails-
-// desktop defaults.
+// fresh install (no settings.json yet) degrades to the desktop
+// defaults.
 func TestLoadMeshSettings_MissingFileReturnsDefaults(t *testing.T) {
 	t.Parallel()
 	a := &App{dataDir: t.TempDir()}
@@ -46,8 +46,8 @@ func TestLoadMeshSettings_CorruptFileReturnsDefaults(t *testing.T) {
 }
 
 // TestSetMeshSettings_PersistsAndRoundTrips verifies the frontend-
-// driven SetMeshSettings → file → GetMeshSettings round-trip survives
-// in a DESIGN-compatible shape.
+// driven SetMeshSettings → file → GetMeshSettings round-trip keeps every
+// field.
 func TestSetMeshSettings_PersistsAndRoundTrips(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -84,25 +84,25 @@ func TestSetMeshSettings_PersistsAndRoundTrips(t *testing.T) {
 	}
 }
 
-// TestDefaultMeshSettings_AlignsWithDESIGN19 pins the Wails-desktop
-// storage defaults to the DESIGN §19 contract: StorageMaxPct=50,
-// TargetHeadroom=25, MinReserveGB=10. A regression in either breaks
-// the runtime parity claim.
-func TestDefaultMeshSettings_AlignsWithDESIGN19(t *testing.T) {
+// TestDefaultMeshSettings_AreTheDesktopDefaults pins the Wails-desktop
+// storage defaults: StorageMaxPct=50, TargetHeadroom=25, MinReserveGB=10,
+// the values mesh.WailsDesktopDefaults gives the runtime, so the app and
+// the runtime it starts agree.
+func TestDefaultMeshSettings_AreTheDesktopDefaults(t *testing.T) {
 	t.Parallel()
 	d := defaultMeshSettings()
 	if d.StorageMaxPct != 50 {
-		t.Errorf("StorageMaxPct=%d, want 50 per DESIGN §19", d.StorageMaxPct)
+		t.Errorf("StorageMaxPct=%d, want 50", d.StorageMaxPct)
 	}
 	if d.StorageHeadroomPct != 25 {
-		t.Errorf("StorageHeadroomPct=%d, want 25 per DESIGN §19", d.StorageHeadroomPct)
+		t.Errorf("StorageHeadroomPct=%d, want 25", d.StorageHeadroomPct)
 	}
 	if d.StorageMinReserveGB != 10 {
-		t.Errorf("StorageMinReserveGB=%d, want 10 per DESIGN §19", d.StorageMinReserveGB)
+		t.Errorf("StorageMinReserveGB=%d, want 10", d.StorageMinReserveGB)
 	}
 	if !d.EnableReplication || !d.EnableBlobProvider || !d.EnableMessageRelay ||
 		!d.EnableBalanceWitness || !d.EnableTxWitness {
-		t.Errorf("DESIGN §19: Wails-desktop should enable all four role categories by default, got %+v", d)
+		t.Errorf("Wails-desktop should enable all four role categories by default, got %+v", d)
 	}
 }
 

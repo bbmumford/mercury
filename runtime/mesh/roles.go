@@ -41,9 +41,8 @@ func (r *Runtime) startReplicator(ctx context.Context) error {
 }
 
 // startBlobProvider participates in Mercury's distributed blob storage
-// mesh. Reuses the same Store/Quota bring-up as startReplicator; once
-// the Phase 2 advertiser lands the two roles will differ — today they
-// share infrastructure.
+// mesh. Reuses the same Store/Quota bring-up as startReplicator; the two
+// roles share that infrastructure.
 //
 // Additionally, when enabled, the BlobProvider role activates the
 // proof-of-storage challenge + response loops.
@@ -194,7 +193,7 @@ func (r *Runtime) registerWitnessProfile(ctx context.Context, chainIDs, capabili
 	}
 }
 
-// runFeeDistributionLoop is the DESIGN §17 baseline duty. Wakes on the
+// runFeeDistributionLoop is every witness's baseline fee duty. Wakes on the
 // configured window and drives a plutus.WitnessFeeDistributor round.
 //
 // Chains with no MaintainerWallets entry are skipped at startup — fee

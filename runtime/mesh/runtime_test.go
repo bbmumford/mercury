@@ -171,13 +171,13 @@ func TestGovernorHook_Threading(t *testing.T) {
 	}
 }
 
-// --- Defaults table per DESIGN §19 -------------------------------------------
+// --- Defaults per runtime ---------------------------------------------------
 
 func TestDefaults_MercuryNode(t *testing.T) {
 	t.Parallel()
 	d := MercuryNodeDefaults()
 	if d.StorageMaxPct != 70 {
-		t.Errorf("StorageMaxPct=%d, want 70 per DESIGN §19", d.StorageMaxPct)
+		t.Errorf("StorageMaxPct=%d, want 70", d.StorageMaxPct)
 	}
 	if d.StorageTargetHeadroomPct != 50 {
 		t.Errorf("StorageTargetHeadroomPct=%d, want 50", d.StorageTargetHeadroomPct)
@@ -187,7 +187,7 @@ func TestDefaults_MercuryNode(t *testing.T) {
 	}
 	if !d.EnableReplication || !d.EnableBlobProvider || !d.EnableMessageRelay ||
 		!d.EnableBalanceWitness || !d.EnableTxWitness {
-		t.Errorf("DESIGN §19: mercury-node should enable all four role categories by default, got %+v", d)
+		t.Errorf("mercury-node should enable all four role categories by default, got %+v", d)
 	}
 }
 
@@ -195,7 +195,7 @@ func TestDefaults_WailsDesktop(t *testing.T) {
 	t.Parallel()
 	d := WailsDesktopDefaults()
 	if d.StorageMaxPct != 50 {
-		t.Errorf("StorageMaxPct=%d, want 50 per DESIGN §19", d.StorageMaxPct)
+		t.Errorf("StorageMaxPct=%d, want 50", d.StorageMaxPct)
 	}
 	if d.StorageTargetHeadroomPct != 25 {
 		t.Errorf("StorageTargetHeadroomPct=%d, want 25", d.StorageTargetHeadroomPct)
@@ -209,7 +209,7 @@ func TestDefaults_ORBTRAgent(t *testing.T) {
 	t.Parallel()
 	d := ORBTRAgentDefaults()
 	if d.StorageMaxPct != 60 {
-		t.Errorf("StorageMaxPct=%d, want 60 per DESIGN §19", d.StorageMaxPct)
+		t.Errorf("StorageMaxPct=%d, want 60", d.StorageMaxPct)
 	}
 	if d.StorageTargetHeadroomPct != 40 {
 		t.Errorf("StorageTargetHeadroomPct=%d, want 40", d.StorageTargetHeadroomPct)

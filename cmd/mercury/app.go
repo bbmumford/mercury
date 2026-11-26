@@ -85,12 +85,12 @@ type App struct {
 // derived at startup rather than round-tripped through the UI.
 //
 // Persistence path: <dataDir>/mesh-settings.json. Missing file →
-// DESIGN §19 Wails-desktop defaults (StorageMaxPct=50, headroom=25).
+// the desktop defaults (StorageMaxPct=50, headroom=25).
 //
-// TODO(mesh-settings-ui): wire a Wails frontend settings form that
-// binds to GetMeshSettings / SetMeshSettings below. The backend side
-// is complete; the frontend currently ships a stub that reads the
-// settings at startup only.
+// The frontend's settings panel (frontend/index.html) reads and writes
+// these through GetMeshSettings / SetMeshSettings below; the runtime
+// reads them when the app starts, so a change takes effect at the next
+// start.
 type MeshSettings struct {
 	Enabled              bool `json:"enabled"`
 	EnableReplication    bool `json:"enableReplication"`
@@ -103,7 +103,7 @@ type MeshSettings struct {
 	StorageMinReserveGB  int  `json:"storageMinReserveGB"`
 
 	// FeeDistributionHours is the fee-distribution cadence in hours
-	// (6/12/24/48). Zero means "use DESIGN §17 default" (24h).
+	// (6/12/24/48). Zero means the runtime's default (24h).
 	FeeDistributionHours int `json:"feeDistributionHours"`
 
 	// MaintainerWallets lists per-chain maintainer wallet configuration.
@@ -122,7 +122,7 @@ type MaintainerWalletSetting struct {
 	PassphraseEnv string `json:"passphraseEnv"`
 }
 
-// defaultMeshSettings returns the DESIGN §19 Wails-desktop defaults.
+// defaultMeshSettings returns the desktop defaults (mesh.WailsDesktopDefaults).
 // Low storage quota because the user's primary workload is the desktop
 // UI itself — mesh participation runs in the background.
 func defaultMeshSettings() MeshSettings {
@@ -184,7 +184,7 @@ func (a *App) startup(ctx context.Context) {
 	// Start Mercury-owned background loops (arbitrator liveness re-publish, ...).
 	sdk.Start(ctx)
 
-	// Bring up the shared mesh runtime (DESIGN §19 desktop defaults).
+	// Bring up the shared mesh runtime (the desktop defaults).
 	// Errors are logged but do not abort startup — the desktop UI stays
 	// usable even when mesh participation cannot start.
 	if settings := a.loadMeshSettings(); settings.Enabled {
@@ -278,7 +278,7 @@ func (a *App) startMeshRuntime(ctx context.Context, settings MeshSettings) error
 }
 
 // loadMeshSettings returns the user's persisted mesh settings, or the
-// DESIGN §19 desktop defaults when no settings file exists. The JSON
+// desktop defaults when no settings file exists. The JSON
 // file lives at <dataDir>/mesh-settings.json; a read failure degrades
 // silently to defaults so a corrupted file never prevents startup.
 func (a *App) loadMeshSettings() MeshSettings {
@@ -305,9 +305,9 @@ func (a *App) GetMeshSettings() MeshSettings {
 }
 
 // SetMeshSettings persists new mesh settings to disk. The runtime is
-// NOT restarted — changes take effect on next app launch. A future
-// enhancement (TODO: mesh-hot-restart) could teardown-and-restart in
-// place to avoid the relaunch.
+// NOT restarted — changes take effect on next app launch.
+// TODO: tear the runtime down and start it again in place, so a change
+// applies without a relaunch.
 func (a *App) SetMeshSettings(settings MeshSettings) error {
 	if a.dataDir == "" {
 		return fmt.Errorf("data dir not initialized")

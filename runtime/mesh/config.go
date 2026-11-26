@@ -18,10 +18,10 @@
 // runtime can pause fee distribution / proof-of-storage during host
 // pressure without pulling ORBTR internals into this package.
 //
-// Design reference: _OTHER/mercury/DESIGN.md §19 "Default behaviors per
-// runtime" — Desktop + mercury-node are both "default" for storage +
-// blobs + relay + witness; ORBTR is opt-in with stricter quotas. Browser
-// WASM is not a target (cannot run witness/replicator per DESIGN §4).
+// Defaults per runtime: Desktop and mercury-node enable storage, blobs,
+// relay and witness by default; ORBTR is opt-in with stricter quotas.
+// Browser WASM is not a target: it cannot run the embedded SPV client a
+// witness needs, nor hold a replicator's disk.
 package mesh
 
 import (
@@ -38,7 +38,7 @@ import (
 // history scanned.
 const defaultNeutrinoBirthHeight = 850000
 
-// defaultFeeDistributionWindow matches DESIGN §17 (24h default).
+// defaultFeeDistributionWindow is the fee-distribution cadence (24h).
 const defaultFeeDistributionWindow = 24 * time.Hour
 
 // Config captures everything the shared mesh runtime needs to decide
@@ -157,7 +157,7 @@ type Config struct {
 	MaintainerWallets map[string]MaintainerWallet
 
 	// FeeDistributionWindow is the cadence at which fee distribution
-	// runs. Zero defaults to 24h (DESIGN §17). Operators should only
+	// runs. Zero defaults to 24h. Operators should only
 	// override for test/devnet deployments.
 	FeeDistributionWindow time.Duration
 
@@ -167,8 +167,8 @@ type Config struct {
 
 	// PRCAddresses maps chainID → on-chain Protocol Registry Contract
 	// address. When populated, EVM fee-distribution payouts target the
-	// PRC's `distributeWindow` entry point (DESIGN §17 first-writer-wins
-	// + anti-omission). Empty map falls back to Multicall3; missing
+	// PRC's `distributeWindow` entry point (first-writer-wins per window,
+	// and an attestation-log root an omitted attester can dispute). Empty map falls back to Multicall3; missing
 	// individual entries fall back per-chain.
 	//
 	// Production deployments typically leave this nil and let the runtime
@@ -263,7 +263,7 @@ type GovernorHook interface {
 	Throttled() bool
 }
 
-// MercuryNodeDefaults returns the DESIGN §19 defaults for a dedicated
+// MercuryNodeDefaults returns the defaults for a dedicated
 // headless mercury-node process (most permissive storage quota because
 // operators running mercury-node are opting into mesh participation as
 // the primary workload).
@@ -289,16 +289,15 @@ func MercuryNodeDefaults() Config {
 	}
 }
 
-// WailsDesktopDefaults returns the DESIGN §19 defaults for Mercury
+// WailsDesktopDefaults returns the defaults for Mercury
 // Desktop (the Wails app). Quotas are tighter because the user's
 // primary workload is the desktop UI itself — mesh participation runs
 // in the background.
 //
 // Replication caps are deliberately the tightest of the three runtimes
 // (250 MB per peer, 2000 MB total) because Mercury Desktop runs on
-// user-owned endpoints with constrained disk. DESIGN §19 explicitly
-// calls for Desktop to carry a lower replication ceiling than
-// mercury-node / the ORBTR agent.
+// user-owned endpoints with constrained disk, so Desktop carries a lower
+// replication ceiling than mercury-node and the ORBTR agent.
 func WailsDesktopDefaults() Config {
 	return Config{
 		EnableReplication:             true,
@@ -321,7 +320,7 @@ func WailsDesktopDefaults() Config {
 	}
 }
 
-// ORBTRAgentDefaults returns the DESIGN §19 defaults for the ORBTR
+// ORBTRAgentDefaults returns the defaults for the ORBTR
 // agent's mesh_embed module. ORBTR's primary device-security mission
 // always wins conflicts → stricter quotas than mercury-node, looser
 // than Desktop because ORBTR agents run on servers more often than

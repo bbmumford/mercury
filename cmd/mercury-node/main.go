@@ -69,12 +69,12 @@ func main() {
 	rpcArbitrum := flag.String("rpc-arbitrum", "", "Arbitrum JSON-RPC URL (balance-witness)")
 	rpcBSC := flag.String("rpc-bsc", "", "BSC JSON-RPC URL (balance-witness)")
 	esploraURL := flag.String("esplora-url", "", "BTC Esplora API URL (default https://blockstream.info/api)")
-	// evmBalanceMode: "single" uses the per-chain rpc-* URLs (legacy; default
-	// for back-compat). "multi" ignores the single URLs and instead runs every
-	// chain through a MultiRPCBalanceProvider over the stock public-RPC list,
-	// requiring --evm-balance-quorum endpoints to agree before any balance is
-	// returned. See _OTHER/mercury/portal-network-roadmap.md for the planned
-	// migration to a fully trustless Portal Network backend.
+	// evmBalanceMode: "single" (the default) uses the per-chain rpc-* URLs.
+	// "multi" ignores the single URLs and instead runs every chain through a
+	// MultiRPCBalanceProvider over the stock public-RPC list, requiring
+	// --evm-balance-quorum endpoints to agree before any balance is returned.
+	// Both trust their RPC endpoints; a Portal Network light client would
+	// make the balance trustless.
 	evmBalanceMode := flag.String("evm-balance-mode", "single", "EVM balance provider mode: single (per-chain RPC URL) or multi (public-RPC quorum)")
 	evmBalanceQuorum := flag.Int("evm-balance-quorum", 3, "number of RPC endpoints that must agree when --evm-balance-mode=multi")
 	evmBalanceTimeout := flag.Duration("evm-balance-timeout", 8*time.Second, "wall-clock timeout per multi-RPC query")
@@ -96,30 +96,30 @@ func main() {
 	//
 	// The delimiter is deliberately '|' rather than ':' so Windows keyfile
 	// paths with a drive letter (C:\path\...) don't get shredded by a naive
-	// SplitN on ':'. Operators upgrading from the old ':' form should switch
-	// to '|' — see OPEN-DECISIONS for the rollover note.
+	// SplitN on ':'. A spec written with ':' separators is refused as
+	// invalid; write it with '|'.
 	maintainerWalletFlags := newMaintainerWalletFlag()
 	flag.Var(maintainerWalletFlags, "maintainer-wallet", "per-chain maintainer wallet spec: chainID|address|keypath|passenv (repeatable)")
 
 	// Shared mesh runtime role flags. When --mesh is enabled (default),
 	// mercury-node brings up the shared _PACKAGES/mercury/runtime/mesh
-	// Runtime alongside the existing role-specific loops. Role defaults
-	// per DESIGN §19 (mercury-node row): everything enabled.
+	// Runtime alongside the existing role-specific loops. Every role is
+	// enabled by default on mercury-node (mesh.MercuryNodeDefaults).
 	meshEnabled := flag.Bool("mesh", true, "enable the shared mesh runtime (storage replicator + blob provider + relay + witness)")
 	meshEnableReplicator := flag.Bool("enable-replicator", true, "mesh runtime: enable storage replicator role")
 	meshEnableBlobProvider := flag.Bool("enable-blob-provider", true, "mesh runtime: enable distributed blob provider role")
 	meshEnableRelay := flag.Bool("enable-relay", true, "mesh runtime: enable message relay role (store-and-forward)")
 	meshEnableWitness := flag.Bool("enable-witness", true, "mesh runtime: enable BTC balance + tx witness roles (embedded Neutrino SPV)")
-	meshStorageMaxPct := flag.Int("storage-max-pct", 70, "mesh runtime: hard disk-usage ceiling (%, DESIGN §19 default=70 for mercury-node)")
+	meshStorageMaxPct := flag.Int("storage-max-pct", 70, "mesh runtime: hard disk-usage ceiling (%, default 70 for mercury-node)")
 	meshStorageTargetHeadroom := flag.Int("storage-target-headroom-pct", 50, "mesh runtime: target free-space headroom (%)")
 	meshStorageMinReserveGB := flag.Int("storage-min-reserve-gb", 5, "mesh runtime: minimum reserved free disk (GB)")
 	meshStorageHardMinGB := flag.Int("storage-hard-min-gb", 2, "mesh runtime: absolute free-disk floor below which replication halts (GB)")
-	meshFeeDistributionWindow := flag.Duration("mesh-fee-distribution-window", 24*time.Hour, "mesh runtime: fee-distribution window (DESIGN §17 default 24h)")
+	meshFeeDistributionWindow := flag.Duration("mesh-fee-distribution-window", 24*time.Hour, "mesh runtime: fee-distribution window (default 24h)")
 
 	// Neutrino (embedded BIP157/158 SPV) BTC witness options. When
 	// btc-mode=neutrino the witness serves BTC balance queries from its own
-	// P2P-synced light client — no Esplora, no bitcoind sidecar. See
-	// _OTHER/mercury/neutrino-bitcoin-guide.md for trade-offs.
+	// P2P-synced light client — no Esplora, no bitcoind sidecar; it costs a
+	// filter-header sync and disk for the filters it keeps.
 	btcMode := flag.String("btc-mode", "esplora", "BTC balance backend: esplora|neutrino (core reserved for future)")
 	neutrinoDataDir := flag.String("neutrino-data-dir", "", "neutrino SPV data dir (default <data-dir>/neutrino)")
 	neutrinoPeers := flag.String("btc-peers", "", "comma-separated BTC P2P peers (host:port); empty → DNS seeds")
@@ -313,9 +313,9 @@ func main() {
 	}
 
 	// ------------------------------------------------------------------
-	// Shared mesh runtime (DESIGN §19). Brings up storage replicator +
-	// blob provider + message relay + witness with DESIGN-§19 mercury-
-	// node defaults. Runs alongside the legacy role plumbing above —
+	// Shared mesh runtime. Brings up storage replicator + blob provider +
+	// message relay + witness with mesh.MercuryNodeDefaults. Runs
+	// alongside the role-specific loops above —
 	// both use the same MercurySDK instance so there's no duplicate
 	// Minerva node.
 	// ------------------------------------------------------------------
@@ -577,7 +577,7 @@ func (t *httpRPCTransport) SendRPC(ctx context.Context, chainID string, method s
 // startBalanceWitness registers ChainBalanceProviders for every chain the user
 // supplied an RPC URL for, then runs the BalanceVerifier in witness mode.
 //
-// Costs (per witness-balance-query-guide.md §Cost):
+// Costs (an estimate for one witness):
 //   - 1 vCPU / 2 GB VPS: ~$5/mo
 //   - Polygon RPC (Alchemy free): $0
 //   - Ethereum archive RPC: $49/mo for Growth tier, or ~$200/mo self-hosted
@@ -860,9 +860,9 @@ func startFeeDistributor(ctx context.Context, sdk *mercury.MercurySDK, opts feeD
 		return
 	}
 
-	// EVM envelope finalizer — clients map intentionally empty until a live
-	// Portal Network / go-ethereum RPC client is wired up. See
-	// TODO(mesh_embed/evm-rpc-client) in plutus/witness/evm_envelope_finalizer.go.
+	// EVM envelope finalizer — the clients map is empty: no live EVM client
+	// (a Portal Network light client or a go-ethereum RPC client) is wired,
+	// so EVM payouts are not finalized here.
 	finalizer := &plutuswitness.EVMEnvelopeFinalizer{
 		Clients: map[string]plutuswitness.EVMChainClient{},
 	}

@@ -308,8 +308,7 @@ func buildPlutusSDK(cfg Config) (*plutus.PlutusSDK, error) {
 	// PRCAddresses is nil we leave plutus.Config's field empty — plutus
 	// will fall back to its canonical.PRC defaults at wallet verification
 	// time. An explicitly non-nil map (including empty) overrides those
-	// defaults per DESIGN §17, which is what testnet / rollback operators
-	// rely on.
+	// defaults, which is what testnet / rollback operators rely on.
 	pcfg := plutus.Config{
 		PRCAddresses: map[string]string{},
 	}
