@@ -31,6 +31,10 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      # minerva's identity package, which mercury builds, links libfido2 through cgo on Linux.
+      - name: Install libfido2
+        run: sudo apt-get update && sudo apt-get install -y libfido2-dev
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -120,6 +124,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+      # A native Linux build links minerva's libfido2 passkey support through cgo.
+      - name: Install libfido2
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfido2-dev
       - name: Build mercury-node
         env:
           GOOS: ${{ matrix.goos }}
