@@ -1,6 +1,7 @@
 # Mercury — API Documentation
 # Generates godoc-style HTML via pkgsite, mirrors it to a static directory,
-# and publishes to GitHub Pages on every version tag.
+# and publishes it to GitHub Pages on every version tag, with the marketplace
+# example under /marketplace/.
 
 name: Docs
 
@@ -72,6 +73,16 @@ jobs:
           <meta http-equiv="refresh" content="0; url=${MODULE_PATH}.html">
           <title>Mercury docs</title>
           HTML
+
+      # The marketplace example runs in the browser on mercury's and plutus's
+      # WASM modules; it is served under /marketplace/ beside the documentation.
+      - name: Stage the marketplace example
+        run: |
+          mkdir -p docs-build/marketplace
+          cp -r example/marketplace/. docs-build/marketplace/
+          GOOS=js GOARCH=wasm go build -o docs-build/marketplace/mercury.wasm ./wasm/
+          GOOS=js GOARCH=wasm go build -o docs-build/marketplace/plutus.wasm github.com/bbmumford/plutus/wasm
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" docs-build/marketplace/
 
       - name: Stop pkgsite
         if: always()

@@ -1,8 +1,9 @@
 # Mercury - Marketplace Engine Release
-# Triggered on version tags (v*). Runs quality checks, builds WASM binary,
-# builds headless node + Wails desktop GUI for all platforms, deploys the
-# marketplace example to GitHub Pages, and creates a GitHub Release with
-# all artifacts attached.
+# Runs on each version tag (v*) and when dispatched: quality checks, the WASM
+# binaries, and the headless node and Wails desktop GUI for every platform.
+# Only a tag's run creates the GitHub Release with every artifact attached; a
+# run dispatched on a branch checks and builds. The Docs workflow deploys the
+# GitHub Pages site, the marketplace example included.
 
 name: Release
 
@@ -14,7 +15,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
   id-token: write
   attestations: write
 
@@ -222,41 +222,6 @@ jobs:
         with:
           name: ${{ matrix.artifact }}
           path: ./cmd/mercury/${{ matrix.output_glob }}
-
-  pages:
-    needs: wasm
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: wasm-artifacts
-          path: wasm-out
-
-      - name: Stage marketplace example with WASM
-        run: |
-          mkdir -p site
-          cp -r example/marketplace/. site/
-          cp wasm-out/mercury.wasm site/
-          cp wasm-out/plutus.wasm site/
-          cp wasm-out/wasm_exec.js site/
-          touch site/.nojekyll
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-      - name: Deploy to Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
 
   # A release needs a tag; a run dispatched on a branch checks the code only.
   release:
