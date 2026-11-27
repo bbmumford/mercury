@@ -8,6 +8,8 @@ github.com/bbmumford/filekind v0.1.2 h1:MoXA0mJWYx4hGjufVdPoyuRJt2wlYv62ImDXV1lU
 github.com/bbmumford/filekind v0.1.2/go.mod h1:qcUGezb4/kFO6sNWV3Wv/wDH5Za1NZIwF19sCL3VZnQ=
 github.com/bbmumford/ratelimit v0.1.0 h1:fWu+kXUECoqGOmpl1B+F6t4cx6JRQqBIQVlvClDAHEg=
 github.com/bbmumford/ratelimit v0.1.0/go.mod h1:1uuAP51WTZ2g/2k7kdZKg+Yg3btB3TB7AdaCAj/czMQ=
+github.com/bbmumford/swarm v0.2.0 h1:leKuj8nPcqvgeigAYicCz6RJUPi6LUx6Kq4f1rIBMLI=
+github.com/bbmumford/swarm v0.2.0/go.mod h1:bLytth92+lgfD7ujtKdCUHHFB06c3V9qGyQfjAgIlgw=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bep/debounce v1.2.1 h1:v67fRdBA9UQu2NhLFXrSg0Brw7CexQekrBwDMM8bzeY=

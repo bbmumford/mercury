@@ -21,6 +21,7 @@ require (
 	github.com/aead/siphash v1.0.1 // indirect
 	github.com/bbmumford/filekind v0.1.2 // indirect
 	github.com/bbmumford/ratelimit v0.1.0 // indirect
+	github.com/bbmumford/swarm v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/btcsuite/btcd v0.24.3-0.20250318170759-4f4ea81776d6 // indirect
