@@ -4,11 +4,11 @@ go 1.27.4
 
 require (
 	github.com/ORBTR/aether v0.0.118
-	github.com/bbmumford/diststore v0.1.0
-	github.com/bbmumford/ledger v0.0.21
-	github.com/bbmumford/minerva v0.0.1
-	github.com/bbmumford/plutus v0.0.1
-	github.com/bbmumford/whisper v0.0.19
+	github.com/bbmumford/diststore v0.1.1
+	github.com/bbmumford/ledger v0.1.0
+	github.com/bbmumford/minerva v0.1.0
+	github.com/bbmumford/plutus v0.1.0
+	github.com/bbmumford/whisper v0.0.20
 	github.com/wailsapp/wails/v2 v2.12.0
 	go.opentelemetry.io/otel v1.47.0
 	golang.org/x/crypto v0.59.0
@@ -109,15 +109,3 @@ require (
 	google.golang.org/grpc v1.83.2 // indirect
 	turso.tech/database/tursogo v0.8.4 // indirect
 )
-
-replace github.com/bbmumford/whisper => ../whisper
-
-replace github.com/bbmumford/plutus => ../plutus
-
-replace github.com/bbmumford/ledger => ../ledger
-
-replace github.com/bbmumford/minerva => ../minerva
-
-replace github.com/ORBTR/aether => ../aether
-
-replace github.com/bbmumford/diststore => ../diststore
