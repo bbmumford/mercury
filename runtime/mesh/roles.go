@@ -76,7 +76,7 @@ func (r *Runtime) startBalanceWitness(ctx context.Context) error {
 		return errors.New("mesh: balance witness requires Plutus SDK")
 	}
 	if r.neutrino != nil {
-		r.plutus.BalanceVerifier.RegisterProvider(chainIDBitcoin, r.neutrino)
+		r.registerChainBalanceProvider(chainIDBitcoin, r.neutrino)
 		r.activeRoles = append(r.activeRoles, RoleBalanceWitness, RoleBalanceWitnessBTC)
 		r.status.recordAttestationCapability(RoleBalanceWitnessBTC)
 		go func() {
@@ -159,9 +159,22 @@ func (r *Runtime) startMarketplace(ctx context.Context) error {
 
 // registerWitnessProfile publishes our witness profile into the
 // registry so other peers can discover us as an attester for the given
-// chains.
+// chains. A chain marked untrustworthy is left out of the profile and its
+// ErrChainUntrustworthy is recorded in Status; when every chain is marked,
+// no profile is signed at all.
 func (r *Runtime) registerWitnessProfile(ctx context.Context, chainIDs, capabilities []string) {
 	if r.plutus == nil || r.plutus.WitnessRegistry == nil {
+		return
+	}
+	trusted := make([]string, 0, len(chainIDs))
+	for _, chainID := range chainIDs {
+		if err := r.chainTrusted(chainID); err != nil {
+			r.status.recordError(fmt.Errorf("mesh: witness profile: %w", err))
+			continue
+		}
+		trusted = append(trusted, chainID)
+	}
+	if len(trusted) == 0 {
 		return
 	}
 	pub := r.plutus.PublicKey()
@@ -179,7 +192,7 @@ func (r *Runtime) registerWitnessProfile(ctx context.Context, chainIDs, capabili
 	}
 	reg := witness.WitnessRegistration{
 		PubKey:          pub,
-		ChainIDs:        append([]string(nil), chainIDs...),
+		ChainIDs:        trusted,
 		Capabilities:    append([]string(nil), capabilities...),
 		PayoutAddresses: payoutAddrs,
 		RegisteredAt:    time.Now(),

@@ -134,10 +134,14 @@ func (t *statusTracker) clearChainUntrustworthy(chainID string) {
 	t.mu.Unlock()
 }
 
-func (t *statusTracker) chainUntrustworthyReason(chainID string) string {
+// chainUntrustworthy reports whether chainID is marked untrustworthy and
+// the reason it was marked with. The mark, not the reason, decides: a chain
+// marked with an empty reason is still marked.
+func (t *statusTracker) chainUntrustworthy(chainID string) (reason string, marked bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.untrustworthy[chainID]
+	reason, marked = t.untrustworthy[chainID]
+	return reason, marked
 }
 
 func (t *statusTracker) setRelayBufferSize(n int) {

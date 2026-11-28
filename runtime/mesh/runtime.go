@@ -270,11 +270,21 @@ func (r *Runtime) Status() Status {
 	return snap
 }
 
-// MarkUntrustworthy disables signing for the given chain. Called by
-// operators (or by role loops) when they detect a desync / reorg.
-// Idempotent.
+// MarkUntrustworthy disables signing for the given chain: until the mark is
+// cleared, the chain's balance provider answers ErrChainUntrustworthy and
+// the witness profile leaves the chain out, so this node signs nothing for
+// it. Called by operators (or by role loops) when they detect a desync /
+// reorg. Idempotent; Status lists the marked chains with their reasons.
 func (r *Runtime) MarkUntrustworthy(chainID, reason string) {
 	r.status.markChainUntrustworthy(chainID, reason)
+}
+
+// ClearUntrustworthy lifts the mark MarkUntrustworthy set on chainID, so
+// the chain's witnesses answer and sign again from the next query. Called
+// by an operator once the chain's view is trusted again. Idempotent:
+// clearing a chain that is not marked does nothing.
+func (r *Runtime) ClearUntrustworthy(chainID string) {
+	r.status.clearChainUntrustworthy(chainID)
 }
 
 // buildMinervaNode constructs the Minerva node with file-backed
