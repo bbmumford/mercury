@@ -80,14 +80,6 @@ func (f *fakeEscrowClient) ExpireChallenge(_ context.Context, cid [32]byte) (str
 	return "0xfake-exp-tx", nil
 }
 
-func (f *fakeEscrowClient) snapshotOpens() []fakeOpenCall {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	out := make([]fakeOpenCall, len(f.opens))
-	copy(out, f.opens)
-	return out
-}
-
 func (f *fakeEscrowClient) snapshotExpires() []fakeExpireCall {
 	f.mu.Lock()
 	defer f.mu.Unlock()

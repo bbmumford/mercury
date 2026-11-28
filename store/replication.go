@@ -725,16 +725,3 @@ func marshalProof(p *MerkleProof) ([]byte, error) {
 	}
 	return json.Marshal(w)
 }
-
-func unmarshalProof(data []byte) (*MerkleProof, error) {
-	var w proofWire
-	if err := json.Unmarshal(data, &w); err != nil {
-		return nil, err
-	}
-	p := &MerkleProof{LeafHash: w.LeafHash}
-	p.Path = make([]ProofNode, len(w.Path))
-	for i, n := range w.Path {
-		p.Path[i] = ProofNode(n)
-	}
-	return p, nil
-}
