@@ -53,6 +53,16 @@ type ArbitratorRuling struct {
 	EvidenceHashes   [][]byte          `json:"evidenceHashes"`
 	Timestamp        time.Time         `json:"timestamp"`
 	Signature        []byte            `json:"signature"`
+
+	// BuyerReputationSignature and SellerReputationSignature are the
+	// arbitrator's signatures, by the key that signs the ruling, over the
+	// buyer's and the seller's dispute reputation records for the ruled
+	// order (DisputeReputationRecords; SignDisputeReputation sets them).
+	// SettleDispute refuses a ruling whose two signatures do not verify, and
+	// stores the records they sign. They are signatures in their own right,
+	// so rulingDigest does not cover them.
+	BuyerReputationSignature  []byte `json:"buyerReputationSignature,omitempty"`
+	SellerReputationSignature []byte `json:"sellerReputationSignature,omitempty"`
 }
 
 // rulingDigest computes the SHA-256 hash of all ArbitratorRuling fields

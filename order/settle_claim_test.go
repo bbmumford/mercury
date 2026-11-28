@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/bbmumford/mercury/arbitration"
 )
 
 // holdFirstCall runs first while the escrow holds it, then runs second, and
@@ -48,7 +50,7 @@ func TestSettleDisputeExecutesARulingOnceUnderConcurrentCalls(t *testing.T) {
 	esc := &recordingEscrow{}
 	s := newTestSettlement(om, esc)
 	s.SetDisputeCases(casesByID{"case-1": {ID: "case-1", OrderID: "o-1", ArbitratorPubKey: assigned}})
-	ruling := signedRuling(t, "case-1", assignedPriv)
+	ruling := signedRulingFor(t, om, "o-1", "case-1", arbitration.RulingSplit, assignedPriv)
 	settleIt := func() error { return s.SettleDispute(context.Background(), "o-1", ruling) }
 
 	firstErr, secondErr := holdFirstCall(t, esc, settleIt, settleIt)
@@ -123,7 +125,7 @@ func TestAFailedEscrowCallLeavesTheOrderSettleable(t *testing.T) {
 	esc := &recordingEscrow{err: errors.New("chain unreachable")}
 	s := newTestSettlement(om, esc)
 	s.SetDisputeCases(casesByID{"case-1": {ID: "case-1", OrderID: "o-1", ArbitratorPubKey: assigned}})
-	ruling := signedRuling(t, "case-1", assignedPriv)
+	ruling := signedRulingFor(t, om, "o-1", "case-1", arbitration.RulingSplit, assignedPriv)
 
 	if err := s.SettleDispute(context.Background(), "o-1", ruling); err == nil {
 		t.Fatal("a failed escrow call was reported settled")
@@ -153,7 +155,7 @@ func TestSettlementRefusesAnOrderInTheWrongStatus(t *testing.T) {
 	s := newTestSettlement(om, esc)
 	s.SetDisputeCases(casesByID{"case-1": {ID: "case-1", OrderID: "funded", ArbitratorPubKey: assigned}})
 
-	if err := s.SettleDispute(context.Background(), "funded", signedRuling(t, "case-1", assignedPriv)); !errors.Is(err, ErrInvalidTransition) {
+	if err := s.SettleDispute(context.Background(), "funded", signedRulingFor(t, om, "funded", "case-1", arbitration.RulingSplit, assignedPriv)); !errors.Is(err, ErrInvalidTransition) {
 		t.Fatalf("a ruling on an order not disputed: got %v, want ErrInvalidTransition", err)
 	}
 	if err := s.RefundTimedOut(context.Background(), "disputed"); !errors.Is(err, ErrInvalidTransition) {

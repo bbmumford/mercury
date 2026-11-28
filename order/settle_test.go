@@ -210,7 +210,7 @@ func TestSettleDisputeExecutesTheAssignedArbitratorsRuling(t *testing.T) {
 	s := newTestSettlement(om, esc)
 	s.SetDisputeCases(casesByID{"case-1": {ID: "case-1", OrderID: "o-1", ArbitratorPubKey: assigned}})
 
-	if err := s.SettleDispute(context.Background(), "o-1", signedRuling(t, "case-1", assignedPriv)); err != nil {
+	if err := s.SettleDispute(context.Background(), "o-1", signedRulingFor(t, om, "o-1", "case-1", arbitration.RulingSplit, assignedPriv)); err != nil {
 		t.Fatalf("SettleDispute: %v", err)
 	}
 	if _, settled, _ := esc.counts(); settled != 1 {

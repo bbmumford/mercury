@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/bbmumford/mercury/arbitration"
 	"github.com/bbmumford/plutus/adapter"
@@ -58,7 +57,22 @@ var (
 	// ErrRulingNotByAssignedArbitrator: the ruling is signed by a key other
 	// than the arbitrator its dispute was assigned.
 	ErrRulingNotByAssignedArbitrator = errors.New("settlement: the ruling is not signed by the dispute's assigned arbitrator")
+	// ErrDisputeReputationUnsigned: the ruling does not carry the
+	// arbitrator's valid signatures over the buyer's and the seller's
+	// dispute reputation records for the order; nothing is settled.
+	ErrDisputeReputationUnsigned = errors.New("settlement: the ruling does not carry the arbitrator's signatures over both parties' dispute reputation records")
+	// ErrReputationNotRecorded: the dispute settled and the order completed,
+	// but storing a party's dispute reputation record failed. It wraps the
+	// store's error, so a caller can tell "settled, not recorded" (do not
+	// settle again) from a refusal that settled nothing.
+	ErrReputationNotRecorded = errors.New("settlement: dispute settled, but its reputation records were not recorded")
 )
+
+// reputationRecorder stores a signed reputation record. SetReputationService
+// wires a *reputation.ReputationService as it.
+type reputationRecorder interface {
+	Record(rec reputation.ReputationRecord) error
+}
 
 // SettlementService handles order-state-specific settlement logic.
 // It delegates fee calculation to Plutus FeeCalculator and escrow operations
@@ -67,7 +81,7 @@ type SettlementService struct {
 	plutusSettle *settle.FeeCalculator
 	plutusEscrow escrowSettler
 	orders       *OrderManager
-	repService   *reputation.ReputationService
+	repService   reputationRecorder
 	prcResolver  PRCFeeResolver
 	disputes     DisputeCases
 }
@@ -100,8 +114,13 @@ func (s *SettlementService) SetDisputeCases(cases DisputeCases) {
 }
 
 // SetReputationService wires the Plutus reputation service for recording
-// dispute outcomes. Optional; if not set, dispute outcomes are not recorded.
+// dispute outcomes. Optional; if not set (or set to nil), dispute outcomes
+// are not recorded.
 func (s *SettlementService) SetReputationService(rep *reputation.ReputationService) {
+	if rep == nil {
+		s.repService = nil
+		return
+	}
 	s.repService = rep
 }
 
@@ -180,10 +199,12 @@ func (s *SettlementService) SettleOrder(ctx context.Context, orderID string) err
 //
 // Steps:
 //  1. Verify the ruling signature, and that its signer is the arbitrator the
-//     ruling's dispute was assigned, for this order
+//     ruling's dispute was assigned, for this order, and that it carries the
+//     arbitrator's signatures over both parties' dispute reputation records
 //  2. Execute the ruling via Plutus escrow (SettleWithRuling)
 //  3. Update order status based on the ruling outcome
-//  4. Record dispute outcome in Plutus reputation service
+//  4. Store the two signed dispute records in the Plutus reputation service;
+//     a store failure returns ErrReputationNotRecorded with the order settled
 func (s *SettlementService) SettleDispute(ctx context.Context, orderID string, ruling arbitration.ArbitratorRuling) error {
 	// Step 1: Verify ruling signature.
 	if !arbitration.VerifyRuling(&ruling) {
@@ -212,14 +233,25 @@ func (s *SettlementService) SettleDispute(ctx context.Context, orderID string, r
 			ruling.BuyerPercent, ruling.SellerPercent)
 	}
 
-	// Claim the disputed order, checking its status in the same step, so the
-	// ruling executes at most once: a concurrent settlement, or any other
-	// status change, is refused until the escrow call's outcome is recorded.
-	claimed, err := s.orders.beginSettlement(orderID, OrderDisputed)
+	// The dispute's reputation records are the arbitrator's to sign, as the
+	// ruling is: check both signatures now, so a ruling without them moves
+	// no money, and keep the signed records to store after settlement.
+	disputed, err := s.orders.Get(orderID)
 	if err != nil {
 		return fmt.Errorf("settlement: %w", err)
 	}
-	order := &claimed
+	buyerRec, sellerRec, ok := arbitration.VerifyDisputeReputation(&ruling, orderID,
+		disputed.Intent.BuyerPubKey, disputed.Intent.SellerPubKey)
+	if !ok {
+		return fmt.Errorf("%w: order %s", ErrDisputeReputationUnsigned, orderID)
+	}
+
+	// Claim the disputed order, checking its status in the same step, so the
+	// ruling executes at most once: a concurrent settlement, or any other
+	// status change, is refused until the escrow call's outcome is recorded.
+	if _, err := s.orders.beginSettlement(orderID, OrderDisputed); err != nil {
+		return fmt.Errorf("settlement: %w", err)
+	}
 	finished := false
 	defer func() {
 		if !finished {
@@ -248,9 +280,11 @@ func (s *SettlementService) SettleDispute(ctx context.Context, orderID string, r
 		return fmt.Errorf("settlement: resolve dispute for order %s: %w", orderID, err)
 	}
 
-	// Step 4: Record dispute outcome in reputation.
+	// Step 4: Store the arbitrator's signed dispute records.
 	if s.repService != nil {
-		s.recordDisputeReputation(order, ruling)
+		if err := s.recordDisputeReputation(buyerRec, sellerRec); err != nil {
+			return fmt.Errorf("%w: order %s: %w", ErrReputationNotRecorded, orderID, err)
+		}
 	}
 
 	return nil
@@ -293,48 +327,18 @@ func (s *SettlementService) RefundTimedOut(ctx context.Context, orderID string) 
 	return nil
 }
 
-// recordDisputeReputation records positive/negative reputation records for
-// both buyer and seller based on the arbitrator ruling outcome.
-func (s *SettlementService) recordDisputeReputation(order *Order, ruling arbitration.ArbitratorRuling) {
-	now := time.Now()
-
-	// Determine scores based on ruling outcome.
-	var buyerScore, sellerScore int32
-	switch ruling.Outcome {
-	case arbitration.RulingBuyerWins:
-		buyerScore = 1   // buyer vindicated
-		sellerScore = -1 // seller penalised
-	case arbitration.RulingSellerWins:
-		buyerScore = -1 // buyer penalised (frivolous dispute)
-		sellerScore = 1 // seller vindicated
-	case arbitration.RulingSplit:
-		buyerScore = 0  // neutral
-		sellerScore = 0 // neutral
+// recordDisputeReputation stores the buyer's and the seller's signed
+// dispute records, trying both even when the first fails, and returns every
+// failure joined.
+func (s *SettlementService) recordDisputeReputation(buyerRec, sellerRec reputation.ReputationRecord) error {
+	var errs []error
+	if err := s.repService.Record(buyerRec); err != nil {
+		errs = append(errs, fmt.Errorf("buyer's record: %w", err))
 	}
-
-	// Record buyer reputation.
-	_ = s.repService.Record(reputation.ReputationRecord{
-		SubjectPubKey:  order.Intent.BuyerPubKey,
-		RecorderPubKey: ruling.ArbitratorPubKey,
-		Score:          buyerScore,
-		Type:           reputation.Dispute,
-		AppID:          "mercury",
-		TxHash:         order.Intent.ID,
-		Comment:        fmt.Sprintf("dispute ruling: %s (buyer=%d%% seller=%d%%)", ruling.Outcome, ruling.BuyerPercent, ruling.SellerPercent),
-		Timestamp:      now,
-	})
-
-	// Record seller reputation.
-	_ = s.repService.Record(reputation.ReputationRecord{
-		SubjectPubKey:  order.Intent.SellerPubKey,
-		RecorderPubKey: ruling.ArbitratorPubKey,
-		Score:          sellerScore,
-		Type:           reputation.Dispute,
-		AppID:          "mercury",
-		TxHash:         order.Intent.ID,
-		Comment:        fmt.Sprintf("dispute ruling: %s (buyer=%d%% seller=%d%%)", ruling.Outcome, ruling.BuyerPercent, ruling.SellerPercent),
-		Timestamp:      now,
-	})
+	if err := s.repService.Record(sellerRec); err != nil {
+		errs = append(errs, fmt.Errorf("seller's record: %w", err))
+	}
+	return errors.Join(errs...)
 }
 
 // rulingOutcomeString converts an arbitration.RulingOutcome to the Plutus
